@@ -1,0 +1,17 @@
+{
+  "name": "room-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Supervisor console for monitoring live jambonz rooms (conferences): listen, coach, enter, and live transcript.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:server": "npm run dev --workspace apps/server",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "license": "MIT"
+}

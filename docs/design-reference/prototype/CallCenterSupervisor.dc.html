@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/jambonz-ui-kit-ee30fa69-a75c-4edd-bc14-26d7fe76d71b/fonts/fonts.css">
+<link rel="stylesheet" href="_ds/jambonz-ui-kit-ee30fa69-a75c-4edd-bc14-26d7fe76d71b/_ds_bundle.css">
+<link rel="stylesheet" href="_ds/jambonz-ui-kit-ee30fa69-a75c-4edd-bc14-26d7fe76d71b/styles.css">
+<style>
+  html, body { margin:0; height:100%; background:#eef0f2; }
+  @keyframes sv-eq { 0%,100%{ transform:scaleY(0.3); } 50%{ transform:scaleY(1); } }
+  @keyframes sv-pulse { 0%{ box-shadow:0 0 0 0 rgba(218,28,92,0.45); } 70%{ box-shadow:0 0 0 7px rgba(218,28,92,0); } 100%{ box-shadow:0 0 0 0 rgba(218,28,92,0); } }
+  .sv-list::-webkit-scrollbar { width:9px; }
+  .sv-list::-webkit-scrollbar-thumb { background:#d2d4d7; border-radius:9px; }
+  .sv-row { transition: background 130ms ease; }
+  .sv-row:hover { background:#f5f6f7; }
+</style>
+</helmet>
+<div style="height:100vh; display:flex; flex-direction:column; font-family:var(--font-regular); color:var(--dark); background:#eef0f2; overflow:hidden;">
+
+  <!-- ===== LOGIN ===== -->
+  <sc-if value="{{ loggedOut }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1; min-height:0; display:flex; align-items:center; justify-content:center; background:var(--dark); padding:24px; overflow-y:auto;">
+      <div style="width:100%; max-width:440px; background:var(--white); border-radius:16px; padding:34px 34px 26px; box-shadow:0 18px 50px rgba(0,0,0,0.35);">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <div style="font-family:var(--font-bold); font-size:1.5rem;"><span style="color:var(--jambonz);">jam</span>bonz</div>
+          <span style="width:1px; height:22px; background:#e4e3e3;"></span>
+          <span style="font-family:var(--font-medium); font-size:0.95rem; color:#7a7778;">Call Monitor</span>
+        </div>
+        <div style="font-size:0.92rem; color:#9a9899; line-height:1.5; margin:8px 0 22px;">Connect to your jambonz system to monitor live calls.</div>
+
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:#a9a7a8; font-family:var(--font-medium); margin-bottom:11px;">Connection</div>
+        <label style="display:block; margin-bottom:14px;">
+          <span style="display:block; font-size:0.82rem; color:#5a5758; font-family:var(--font-medium); margin-bottom:6px;">Base URL</span>
+          <input value="{{ baseUrl }}" onInput="{{ onBaseUrl }}" onKeyDown="{{ onLoginKey }}" placeholder="https://api.jambonz.cloud" style="width:100%; box-sizing:border-box; padding:11px 13px; border-radius:9px; border:1.5px solid var(--grey); font-family:var(--font-regular); font-size:0.95rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--jambonz);" />
+        </label>
+        <label style="display:block; margin-bottom:14px;">
+          <span style="display:block; font-size:0.82rem; color:#5a5758; font-family:var(--font-medium); margin-bottom:6px;">Account SID</span>
+          <input value="{{ accountSid }}" onInput="{{ onAccountSid }}" onKeyDown="{{ onLoginKey }}" placeholder="e.g. 2708b1b3-94f0-4f3c-9c1e-..." style="width:100%; box-sizing:border-box; padding:11px 13px; border-radius:9px; border:1.5px solid var(--grey); font-family:var(--font-mono); font-size:0.9rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--jambonz);" />
+        </label>
+        <label style="display:block; margin-bottom:20px;">
+          <span style="display:block; font-size:0.82rem; color:#5a5758; font-family:var(--font-medium); margin-bottom:6px;">API key</span>
+          <input type="password" value="{{ apiKey }}" onInput="{{ onApiKey }}" onKeyDown="{{ onLoginKey }}" placeholder="Used to query calls via the REST API" style="width:100%; box-sizing:border-box; padding:11px 13px; border-radius:9px; border:1.5px solid var(--grey); font-family:var(--font-regular); font-size:0.95rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--jambonz);" />
+        </label>
+
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:#a9a7a8; font-family:var(--font-medium); margin-bottom:11px;">Credentials</div>
+        <label style="display:block; margin-bottom:14px;">
+          <span style="display:block; font-size:0.82rem; color:#5a5758; font-family:var(--font-medium); margin-bottom:6px;">Username</span>
+          <input value="{{ username }}" onInput="{{ onUsername }}" onKeyDown="{{ onLoginKey }}" placeholder="supervisor" style="width:100%; box-sizing:border-box; padding:11px 13px; border-radius:9px; border:1.5px solid var(--grey); font-family:var(--font-regular); font-size:0.95rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--jambonz);" />
+        </label>
+        <label style="display:block; margin-bottom:8px;">
+          <span style="display:block; font-size:0.82rem; color:#5a5758; font-family:var(--font-medium); margin-bottom:6px;">Password</span>
+          <input type="password" value="{{ password }}" onInput="{{ onPassword }}" onKeyDown="{{ onLoginKey }}" placeholder="••••••••" style="width:100%; box-sizing:border-box; padding:11px 13px; border-radius:9px; border:1.5px solid var(--grey); font-family:var(--font-regular); font-size:0.95rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--jambonz);" />
+        </label>
+
+        <sc-if value="{{ hasLoginError }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:center; gap:7px; color:var(--red); font-size:0.82rem; margin:8px 0 4px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            {{ loginError }}
+          </div>
+        </sc-if>
+
+        <button onClick="{{ connect }}" style="width:100%; margin-top:14px; padding:14px; border-radius:10px; border:none; cursor:pointer; background:var(--jambonz); color:var(--white); font-family:var(--font-medium); font-size:1rem; display:inline-flex; align-items:center; justify-content:center; gap:9px;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+          Connect
+        </button>
+        <div style="margin-top:16px; font-size:0.76rem; color:#b3b1b2; line-height:1.5; text-align:center;">Your API key and password are used only to authenticate with this jambonz system.</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== CONSOLE ===== -->
+  <sc-if value="{{ authed }}" hint-placeholder-val="{{ false }}">
+  <div style="flex:1; min-height:0; display:flex; flex-direction:column;">
+
+  <!-- Top bar -->
+  <div style="flex:none; height:64px; display:flex; align-items:center; gap:24px; padding:0 24px; background:var(--dark); color:var(--white);">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="font-family:var(--font-bold); font-size:1.4rem; letter-spacing:0;"><span style="color:var(--jambonz);">jam</span>bonz</div>
+      <span style="width:1px; height:26px; background:rgba(255,255,255,0.18);"></span>
+      <span style="font-family:var(--font-medium); font-size:0.95rem; opacity:0.85;">Call Monitor</span>
+    </div>
+
+    <div style="display:flex; align-items:baseline; gap:7px; margin-left:8px;">
+      <span style="font-family:var(--font-bold); font-size:1.15rem;">{{ activeCount }}</span>
+      <span style="font-size:0.78rem; opacity:0.6;">live calls</span>
+    </div>
+
+    <div style="flex:1;"></div>
+
+    <div style="display:flex; align-items:center; gap:14px; padding-left:8px;">
+      <button onClick="{{ signOut }}" style="display:inline-flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.6); font-family:var(--font-medium); font-size:0.8rem;" style-hover="color:var(--white);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        Sign out
+      </button>
+      <span style="width:1px; height:24px; background:rgba(255,255,255,0.18);"></span>
+      <div style="text-align:right; line-height:1.2;"><div style="font-family:var(--font-medium); font-size:0.85rem;">{{ supName }}</div><div style="font-size:0.72rem; opacity:0.55; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ supSub }}</div></div>
+      <div style="width:36px; height:36px; border-radius:50%; background:var(--jambonz); display:flex; align-items:center; justify-content:center; font-family:var(--font-bold); font-size:0.8rem;">{{ supInitials }}</div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div style="flex:1; min-height:0; display:flex;">
+    <!-- Rail -->
+    <div style="width:380px; flex:none; display:flex; flex-direction:column; background:var(--white); border-right:1px solid #e4e3e3; min-height:0;">
+      <div style="flex:none; padding:16px 18px 12px; border-bottom:1px solid var(--grey-light);">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-family:var(--font-bold); font-size:1.05rem;">Rooms</span>
+          <span style="font-size:0.75rem; color:#9a9899; font-family:var(--font-medium); background:var(--grey-light); padding:3px 9px; border-radius:20px;">{{ activeCount }}</span>
+        </div>
+      </div>
+      <div class="sv-list" style="flex:1; overflow-y:auto; min-height:0;">
+        <sc-for list="{{ calls }}" as="c" hint-placeholder-count="10">
+          <div class="sv-row" onClick="{{ c.select }}" style="display:flex; gap:12px; align-items:center; padding:14px 16px 14px 13px; cursor:pointer; border-bottom:1px solid var(--grey-light); border-left:3px solid {{ c.accent }}; background: {{ c.railBg }}; position:relative;">
+            <div style="width:40px; height:40px; flex:none; border-radius:11px; display:flex; align-items:center; justify-content:center; color:var(--white); background:var(--purple);">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            </div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <span style="font-family:var(--font-medium); font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ c.title }}</span>
+                <span style="font-size:0.8rem; font-variant-numeric:tabular-nums; color:#9a9899; flex:none;">{{ c.durStr }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:7px; margin-top:3px;">
+                <span style="font-size:0.8rem; font-family:var(--font-medium); color: {{ c.agentColor }};">{{ c.agentLabel }}</span>
+                <span style="color:#d2d0d0;">·</span>
+                <span style="font-size:0.8rem; color:#9a9899;">{{ c.otherLabel }}</span>
+              </div>
+            </div>
+            <sc-if value="{{ c.showEq }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:none; display:flex; align-items:flex-end; gap:2px; height:14px;">
+                <span style="width:2.5px; height:100%; border-radius:2px; background:var(--blue); transform-origin:bottom; animation: sv-eq 650ms ease-in-out infinite;"></span>
+                <span style="width:2.5px; height:100%; border-radius:2px; background:var(--blue); transform-origin:bottom; animation: sv-eq 650ms ease-in-out infinite; animation-delay:160ms;"></span>
+                <span style="width:2.5px; height:100%; border-radius:2px; background:var(--blue); transform-origin:bottom; animation: sv-eq 650ms ease-in-out infinite; animation-delay:300ms;"></span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:36px 28px; gap:13px;">
+            <div style="width:74px; height:74px; border-radius:50%; background:var(--pink); display:flex; align-items:center; justify-content:center; animation: sv-pulse 2200ms ease-out infinite;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--jambonz)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 1 2 2h1a2 2 0 0 1 2-2v-3a2 2 0 0 1-2-2H3z"></path></svg>
+            </div>
+            <div style="font-family:var(--font-bold); font-size:1.1rem;">No active calls</div>
+            <div style="font-size:0.88rem; color:#7a7778; line-height:1.55; max-width:240px;">There are no live calls on this system right now. New calls appear here automatically as they start.</div>
+            <div style="display:inline-flex; align-items:center; gap:8px; margin-top:4px; font-size:0.8rem; color:var(--jambonz); font-family:var(--font-medium);"><span style="width:8px; height:8px; border-radius:50%; background:var(--jambonz); animation: sv-eq 1100ms ease-in-out infinite;"></span> Watching for new calls</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div style="flex:1; min-width:0; min-height:0;">
+      <dc-import name="CallDetail" call="{{ selCall }}" lines="{{ selLines }}" listen-mode="{{ listenMode }}" transcript-on="{{ transcriptOn }}" on-set-mode="{{ setMode }}" on-leave="{{ leaveCall }}" on-send="{{ sendCoach }}" on-toggle-transcript="{{ toggleTranscript }}" hint-size="100%,100%"></dc-import>
+    </div>
+  </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;emptyFloor&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo states&quot;,&quot;label&quot;:&quot;Simulate no active calls&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const data = this.buildData();
+    const ls = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
+    this.state = {
+      authed: ls("ccs_auth", "") === "1",
+      baseUrl: ls("ccs_baseUrl", ""),
+      accountSid: ls("ccs_accountSid", ""),
+      apiKey: "",
+      username: ls("ccs_username", ""),
+      password: "",
+      loginError: "",
+      calls: data.calls,
+      transcripts: data.transcripts,
+      selectedId: data.calls[0].id,
+      listenMode: "idle",
+      transcriptOn: false,
+      tick: 0,
+    };
+    this._t = 0;
+  }
+
+  componentDidMount() { this._iv = setInterval(() => this.engine(), 1000); }
+  componentWillUnmount() { clearInterval(this._iv); }
+
+  fmt(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + String(s).padStart(2, "0");
+  }
+  fmtDur(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    if (sec < 60) return "0:" + String(sec).padStart(2, "0");
+    return Math.floor(sec / 60) + "m";
+  }
+  initialsOf(name) {
+    return (name || "").replace(/[,.]/g, " ").split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase();
+  }
+
+  buildData() {
+    const people = ["Maya Chen","Devon Brooks","Priya Nair","Marcus Webb","Lena Vogt","Tariq Hassan","Sofia Russo","Jamal Carter","Nina Petrova","Owen Fletcher","Aisha Bello","Diego Marquez","Hannah Kim","Liam O'Connor","Yara Haddad","Grace Liu","Ethan Ford","Zoe Adams","Raj Patel","Noah Bennett"];
+    const roomNames = ["Support room A","Support room B","Sales bridge","Q3 planning sync","Customer webinar","Escalation room","Onboarding session","Billing helpdesk","Tech support pool","Outbound campaign","VIP support line","Conference 4471","Training room","Overflow queue","Partner sync"];
+    const palette = ["var(--blue)","var(--teal)","var(--purple)","var(--jambonz)","var(--green)","var(--dark)"];
+    const rnd = (n) => Math.floor(Math.random() * n);
+    const pick = (a) => a[rnd(a.length)];
+    const phone = () => "+1 (" + (200 + rnd(700)) + ") " + (200 + rnd(700)) + "-" + String(1000 + rnd(9000));
+
+    // line: [speakerIndex, text]
+    const script = [[0,"Thanks for staying on the line — let me pull up your account."],[1,"No problem, take your time."],[2,"While we wait, can you confirm the order number?"],[1,"Sure, it's 4471."],[0,"Got it. I can see the issue now."],[3,"I can jump in here if that helps."],[1,"That would be great, thank you."],[0,"Let me apply the credit to your account."],[2,"That should resolve it on our end."],[1,"Perfect, I really appreciate it."]];
+    const cont = [[0,"Okay, that makes sense."],[1,"Anything else before we wrap up?"],[2,"No, I think that's everything."],[0,"Great — thanks, talk soon."]];
+
+    const calls = [];
+    const transcripts = {};
+    for (let i = 0; i < 20; i++) {
+      const id = "c" + i;
+      const duration = 25 + rnd(560);
+      const count = 1 + rnd(6); // 1..6 participants
+      // decide how many agents: sometimes zero
+      let agentCount = Math.random() < 0.3 ? 0 : 1 + rnd(Math.max(1, Math.min(count, 3)));
+      if (agentCount > count) agentCount = count;
+
+      const participants = [];
+      for (let k = 0; k < count; k++) {
+        const isAgent = k < agentCount;
+        const usePhone = !isAgent && Math.random() < 0.55;
+        participants.push({
+          short: usePhone ? phone() : people[(i * 4 + k) % people.length],
+          color: palette[k % palette.length],
+          tag: isAgent ? "agent" : "",
+        });
+      }
+      // shuffle so agents aren't always first
+      for (let k = participants.length - 1; k > 0; k--) { const j = rnd(k + 1); const t = participants[k]; participants[k] = participants[j]; participants[j] = t; }
+
+      transcripts[id] = [];
+      calls.push({ id, title: pick(roomNames), participants, duration, script: script.concat(cont, cont), ptr: 0 });
+    }
+    return { calls, transcripts };
+  }
+
+  advance(call, transcripts) {
+    const line = call.script[call.ptr % call.script.length];
+    call.ptr += 1;
+    const p = call.participants[line[0] % call.participants.length];
+    const entry = { speaker: p.short, color: p.color, tag: p.tag, kind: "person", text: line[1], t: this.fmt(call.duration) };
+    transcripts[call.id] = (transcripts[call.id] || []).concat(entry);
+  }
+
+  engine() {
+    this._t += 1;
+    this.setState(s => {
+      const calls = s.calls.map(c => ({ ...c, duration: c.duration + 1 }));
+      let transcripts = s.transcripts;
+      if (s.transcriptOn && this._t % 3 === 0) {
+        const sel = calls.find(c => c.id === s.selectedId);
+        if (sel) { transcripts = { ...transcripts }; this.advance(sel, transcripts); }
+      }
+      return { calls, transcripts, tick: s.tick + 1 };
+    });
+  }
+
+  selectCall(id) {
+    this.setState(s => {
+      if (id === s.selectedId) return {};
+      return { selectedId: id, listenMode: "idle", transcriptOn: false };
+    });
+  }
+  setMode(mode) { this.setState({ listenMode: mode }); }
+  leaveCall() { this.setState({ listenMode: "idle" }); }
+  sendCoach(text) {
+    this.setState(s => {
+      const channel = s.listenMode === "enter" ? "enter" : "coach";
+      const call = s.calls.find(c => c.id === s.selectedId);
+      const entry = { kind: "supervisor", channel, text, t: this.fmt(call ? call.duration : 0) };
+      return { transcripts: { ...s.transcripts, [s.selectedId]: (s.transcripts[s.selectedId] || []).concat(entry) } };
+    });
+  }
+  toggleTranscript() {
+    this.setState(s => {
+      if (s.transcriptOn) return { transcriptOn: false };
+      const sel = { ...s.calls.find(c => c.id === s.selectedId) };
+      const transcripts = { ...s.transcripts };
+      this.advance(sel, transcripts);
+      const calls = s.calls.map(c => (c.id === sel.id ? sel : c));
+      return { transcriptOn: true, calls, transcripts };
+    });
+  }
+
+  connect() {
+    const s = this.state;
+    if (!s.baseUrl.trim() || !s.accountSid.trim() || !s.apiKey.trim() || !s.username.trim() || !s.password.trim()) {
+      this.setState({ loginError: "Please complete every field to connect." });
+      return;
+    }
+    try {
+      localStorage.setItem("ccs_auth", "1");
+      localStorage.setItem("ccs_baseUrl", s.baseUrl);
+      localStorage.setItem("ccs_accountSid", s.accountSid);
+      localStorage.setItem("ccs_username", s.username);
+    } catch (e) {}
+    this.setState({ authed: true, loginError: "" });
+  }
+  signOut() {
+    try { localStorage.setItem("ccs_auth", ""); } catch (e) {}
+    this.setState({ authed: false, apiKey: "", password: "" });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const emptyFloor = this.props.emptyFloor ?? false;
+    const source = emptyFloor ? [] : s.calls;
+
+    const calls = source.map(c => {
+      const isSel = c.id === s.selectedId;
+      const agentCount = (c.participants || []).filter(p => p.tag === "agent").length;
+      const otherCount = (c.participants || []).length - agentCount;
+      return {
+        id: c.id, title: c.title,
+        agentCount, hasAgents: agentCount > 0,
+        agentLabel: agentCount + (agentCount === 1 ? " agent" : " agents"),
+        agentColor: agentCount > 0 ? "var(--teal)" : "#9a9899",
+        otherLabel: otherCount + (otherCount === 1 ? " other" : " others"),
+        durStr: this.fmtDur(c.duration),
+        railBg: isSel ? "var(--pink)" : "transparent",
+        accent: isSel ? "var(--jambonz)" : "transparent",
+        showEq: isSel && s.listenMode !== "idle",
+        select: () => this.selectCall(c.id),
+      };
+    });
+
+    const selCall = emptyFloor ? null : (s.calls.find(c => c.id === s.selectedId) || null);
+    const selLines = emptyFloor ? [] : (s.transcripts[s.selectedId] || []);
+
+    return {
+      authed: s.authed, loggedOut: !s.authed,
+      baseUrl: s.baseUrl, accountSid: s.accountSid, apiKey: s.apiKey, username: s.username, password: s.password,
+      loginError: s.loginError, hasLoginError: !!s.loginError,
+      onBaseUrl: (e) => this.setState({ baseUrl: e.target.value, loginError: "" }),
+      onAccountSid: (e) => this.setState({ accountSid: e.target.value, loginError: "" }),
+      onApiKey: (e) => this.setState({ apiKey: e.target.value, loginError: "" }),
+      onUsername: (e) => this.setState({ username: e.target.value, loginError: "" }),
+      onPassword: (e) => this.setState({ password: e.target.value, loginError: "" }),
+      onLoginKey: (e) => { if (e.key === "Enter") this.connect(); },
+      connect: () => this.connect(),
+      signOut: () => this.signOut(),
+      supName: s.username || "Supervisor",
+      supSub: s.accountSid || "Operations",
+      supInitials: this.initialsOf(s.username) || "SU",
+      calls, selCall, selLines, listenMode: s.listenMode,
+      transcriptOn: emptyFloor ? false : s.transcriptOn,
+      hasCalls: source.length > 0, isEmpty: source.length === 0,
+      activeCount: source.length,
+      setMode: (m) => this.setMode(m),
+      leaveCall: () => this.leaveCall(),
+      sendCoach: (t) => this.sendCoach(t),
+      toggleTranscript: () => this.toggleTranscript(),
+    };
+  }
+}
+</script>
+</body>
+</html>

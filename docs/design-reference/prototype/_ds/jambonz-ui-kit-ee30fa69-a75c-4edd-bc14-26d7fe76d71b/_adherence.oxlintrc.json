@@ -1,0 +1,324 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": [
+          {
+            "element": "button",
+            "message": "Use <Button> from the design system instead of <button>."
+          }
+        ]
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/buttons/Button/**",
+              "components/buttons/ButtonGroup/**",
+              "components/icons/Icon/**",
+              "components/icons/IconGroup/**",
+              "components/jambonz-ui/Tabs/**",
+              "components/typography/H1/**",
+              "components/typography/H2/**",
+              "components/typography/H3/**",
+              "components/typography/H4/**",
+              "components/typography/H5/**",
+              "components/typography/H6/**",
+              "components/typography/M/**",
+              "components/typography/MS/**",
+              "components/typography/MXS/**",
+              "components/typography/P/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:objectivityregular|objectivityregular_slanted|objectivitymedium|objectivitymedium_slanted|objectivitybold|objectivitybold_slanted))/i]",
+        "message": "Font not provided by the design system. Available: objectivityregular, objectivityregular_slanted, objectivitymedium, objectivitymedium_slanted, objectivitybold, objectivitybold_slanted."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute > JSXIdentifier[name!=/^(?:small|subStyle|mainStyle|ref|className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<Button> doesn't accept that prop. Declared props: small, subStyle, mainStyle, ref, className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='subStyle'] > Literal[value!=/^(?:dark|blue|teal|purple|white|grey)$/]",
+        "message": "<Button> subStyle must be one of 'dark' | 'blue' | 'teal' | 'purple' | 'white' | 'grey'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='mainStyle'] > Literal[value!=/^(?:primary|hollow)$/]",
+        "message": "<Button> mainStyle must be one of 'primary' | 'hollow'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ButtonGroup'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|left|right|key|ref|className|style|children)$/]",
+        "message": "<ButtonGroup> doesn't accept that prop. Declared props: className, id, style, children, left, right."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='H1'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<H1> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='H2'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<H2> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='H3'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<H3> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='H4'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<H4> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='H5'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<H5> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='H6'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<H6> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Icon'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|subStyle|mainStyle|key|ref|className|style|children)$/]",
+        "message": "<Icon> doesn't accept that prop. Declared props: className, id, style, children, subStyle, mainStyle."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Icon'] > JSXAttribute[name.name='subStyle'] > Literal[value!=/^(?:dark|blue|teal|purple|white|grey)$/]",
+        "message": "<Icon> subStyle must be one of 'dark' | 'blue' | 'teal' | 'purple' | 'white' | 'grey'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Icon'] > JSXAttribute[name.name='mainStyle'] > Literal[value!=/^(?:primary|hollow)$/]",
+        "message": "<Icon> mainStyle must be one of 'primary' | 'hollow'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='IconGroup'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<IconGroup> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='M'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<M> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='MS'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<MS> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='MXS'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<MXS> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='P'] > JSXAttribute > JSXIdentifier[name!=/^(?:className|id|style|children|key|ref|className|style|children)$/]",
+        "message": "<P> doesn't accept that prop. Declared props: className, id, style, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Tabs'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|active|key|ref|className|style|children)$/]",
+        "message": "<Tabs> doesn't accept that prop. Declared props: children, active."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "Button": {
+        "replaces": [
+          "button"
+        ]
+      },
+      "ButtonGroup": {
+        "replaces": []
+      },
+      "H1": {
+        "replaces": []
+      },
+      "H2": {
+        "replaces": []
+      },
+      "H3": {
+        "replaces": []
+      },
+      "H4": {
+        "replaces": []
+      },
+      "H5": {
+        "replaces": []
+      },
+      "H6": {
+        "replaces": []
+      },
+      "Icon": {
+        "replaces": []
+      },
+      "IconGroup": {
+        "replaces": []
+      },
+      "M": {
+        "replaces": []
+      },
+      "MS": {
+        "replaces": []
+      },
+      "MXS": {
+        "replaces": []
+      },
+      "P": {
+        "replaces": []
+      },
+      "Tabs": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--base-dur",
+      "--base-ease",
+      "--black",
+      "--blue",
+      "--dark",
+      "--font-black",
+      "--font-black-italic",
+      "--font-bold",
+      "--font-bold-italic",
+      "--font-medium",
+      "--font-medium-italic",
+      "--font-mono",
+      "--font-regular",
+      "--font-regular-italic",
+      "--green",
+      "--grey",
+      "--grey-light",
+      "--h1-size",
+      "--h2-size",
+      "--h3-size",
+      "--h4-size",
+      "--h5-size",
+      "--h6-size",
+      "--icon-size-1",
+      "--icon-size-2",
+      "--icon-size-3",
+      "--jambonz",
+      "--letter-space-1",
+      "--letter-space-2",
+      "--letter-space-3",
+      "--letter-space-4",
+      "--letter-space-5",
+      "--m-size",
+      "--mix-amount",
+      "--ms-size",
+      "--mxs-size",
+      "--p-size",
+      "--pink",
+      "--purple",
+      "--px00",
+      "--px01",
+      "--px02",
+      "--px03",
+      "--px04",
+      "--px05",
+      "--red",
+      "--svg00",
+      "--svg01",
+      "--teal",
+      "--white",
+      "--width-border",
+      "--width-laptop",
+      "--width-mobile",
+      "--width-padding",
+      "--width-small",
+      "--width-tablet-1",
+      "--width-tablet-2"
+    ],
+    "tokenKinds": {
+      "--black": "color",
+      "--white": "color",
+      "--dark": "color",
+      "--grey": "color",
+      "--grey-light": "color",
+      "--jambonz": "color",
+      "--pink": "color",
+      "--purple": "color",
+      "--teal": "color",
+      "--blue": "color",
+      "--green": "color",
+      "--red": "color",
+      "--mix-amount": "spacing",
+      "--font-regular": "font",
+      "--font-regular-italic": "font",
+      "--font-medium": "font",
+      "--font-medium-italic": "font",
+      "--font-bold": "font",
+      "--font-bold-italic": "font",
+      "--font-black": "font",
+      "--font-black-italic": "font",
+      "--font-mono": "font",
+      "--letter-space-1": "font",
+      "--letter-space-2": "font",
+      "--letter-space-3": "font",
+      "--letter-space-4": "font",
+      "--letter-space-5": "font",
+      "--h1-size": "spacing",
+      "--h2-size": "spacing",
+      "--h3-size": "spacing",
+      "--h4-size": "spacing",
+      "--h5-size": "spacing",
+      "--h6-size": "spacing",
+      "--p-size": "spacing",
+      "--m-size": "spacing",
+      "--ms-size": "spacing",
+      "--mxs-size": "spacing",
+      "--px00": "spacing",
+      "--px01": "spacing",
+      "--px02": "spacing",
+      "--px03": "spacing",
+      "--px04": "spacing",
+      "--px05": "spacing",
+      "--svg00": "spacing",
+      "--svg01": "spacing",
+      "--icon-size-1": "spacing",
+      "--icon-size-2": "spacing",
+      "--icon-size-3": "spacing",
+      "--width-laptop": "spacing",
+      "--width-tablet-1": "spacing",
+      "--width-tablet-2": "spacing",
+      "--width-mobile": "spacing",
+      "--width-small": "spacing",
+      "--width-padding": "spacing",
+      "--width-border": "spacing",
+      "--base-dur": "other",
+      "--base-ease": "other"
+    },
+    "fontFamilies": [
+      "objectivitybold",
+      "objectivitybold_slanted",
+      "objectivitymedium",
+      "objectivitymedium_slanted",
+      "objectivityregular",
+      "objectivityregular_slanted"
+    ]
+  }
+}

@@ -1,0 +1,1056 @@
+:root {
+  --black: #000;
+  --white: #fff;
+  --dark: #231f20;
+  --grey: #c8c7c7;
+  --grey-light: #f8f8f8;
+  --jambonz: #da1c5c;
+  --pink: #fff3f6;
+  --purple: #9662b2;
+  --teal: #30beb0;
+  --blue: #006dff;
+  --green: #008a1a;
+  --red: #e10e22;
+  --mix-amount: 25%;
+  --font-regular: objectivityregular;
+  --font-regular-italic: objectivityregular_slanted;
+  --font-medium: objectivitymedium;
+  --font-medium-italic: objectivitymedium_slanted;
+  --font-bold: objectivitybold;
+  --font-bold-italic: objectivitybold_slanted;
+  --font-black: objectivityblack;
+  --font-black-italic: objectivityblack_slanted;
+  --font-mono: Consolas, Monaco, Andale Mono, Ubuntu Mono, monospace;
+  --letter-space-1: -0.02px;
+  --letter-space-2: -0.03px;
+  --letter-space-3: -0.04px;
+  --letter-space-4: -0.05px;
+  --letter-space-5: -0.06px;
+  --h1-size: 3rem;
+  --h2-size: 2.5rem;
+  --h3-size: 2.25rem;
+  --h4-size: 2rem;
+  --h5-size: 1.5rem;
+  --h6-size: 1.25rem;
+  --p-size: 1.125rem;
+  --m-size: 1rem;
+  --ms-size: 0.875rem;
+  --mxs-size: 0.75rem;
+  --px00: 4px;
+  --px01: 8px;
+  --px02: 16px;
+  --px03: 32px;
+  --px04: 64px;
+  --px05: 96px;
+  --svg00: 18px;
+  --svg01: 20px;
+  --icon-size-1: 3rem;
+  --icon-size-2: 2.5rem;
+  --icon-size-3: 2.25rem;
+  --width-laptop: 1440px;
+  --width-tablet-1: 1024px;
+  --width-tablet-2: 768px;
+  --width-mobile: 640px;
+  --width-small: 480px;
+  --width-padding: 4.4444444444vw;
+  --width-border: 2px;
+  --base-dur: 200ms;
+  --base-ease: ease;
+}
+
+/******************************************************************************
+ * CSS Reset
+ * Add / Remove / Tweak this for your project.
+ * The philosophy behind the CSS Reset is personal application customization.
+ *
+ * This approach is preferred over options like Normalize, which make way
+ * too many assumptions and apply styles on top of the basic property resets.
+ *
+ * Though this CSS Reset is very basic and has not been updated in quite some
+ * time, since 2011, it serves as a great starting point.
+ *
+ * Know what you are resetting and have piloted conrtol of your web app ;-)
+ *
+ *
+ * http://meyerweb.com/eric/tools/css/reset/
+ * v2.0 | 20110126
+ * License: none (public domain)
+*******************************************************************************/
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  font-size: 100%;
+  vertical-align: baseline;
+}
+
+html {
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+caption,
+th,
+td {
+  text-align: left;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
+q,
+blockquote {
+  quotes: none;
+}
+
+q:before,
+q:after,
+blockquote:before,
+blockquote:after {
+  content: "";
+  content: none;
+}
+
+a img {
+  border: none;
+}
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section,
+main {
+  display: block;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* @ds-font-face-dropped: unresolvable src */
+/* @ds-font-face-dropped: unresolvable src */
+/* @ds-font-face-dropped: unresolvable src */
+/* @ds-font-face-dropped: unresolvable src */
+/* @ds-font-face-dropped: unresolvable src */
+/* @ds-font-face-dropped: unresolvable src */
+.tabs__nav {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border-bottom: 2px solid var(--grey-light);
+}
+.tabs__nav__item {
+  /** <button> */
+  font-size: var(--ms-size);
+  line-height: 2;
+  font-family: var(--font-medium);
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: var(--px01) 0;
+  cursor: pointer;
+}
+.tabs__nav__item em {
+  font-family: var(--font-medium-italic);
+}
+.tabs__nav__item.active {
+  color: var(--jambonz);
+}
+.tabs__nav button + button {
+  margin-left: var(--px03);
+}
+.tabs__tabs__item {
+  display: none;
+}
+.tabs__tabs__item.active {
+  display: block;
+}
+.tabs__active {
+  width: 0;
+  height: 2px;
+  background-color: var(--jambonz);
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  transition: width var(--base-dur) var(--base-ease), transform var(--base-dur) var(--base-ease);
+}
+
+svg {
+  transition: stroke var(--base-dur) var(--base-ease);
+}
+
+.ico {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--jambonz);
+  width: var(--icon-size-1);
+  height: var(--icon-size-1);
+  border-radius: 100%;
+}
+@media (max-width: 640px) {
+  .ico {
+    width: var(--icon-size-2);
+    height: var(--icon-size-2);
+  }
+}
+.ico svg {
+  stroke: var(--white);
+  width: 22px;
+  height: 22px;
+}
+@media (max-width: 640px) {
+  .ico svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+.ico--dark {
+  background-color: var(--dark);
+}
+.ico--blue {
+  background-color: var(--blue);
+}
+.ico--teal {
+  background-color: var(--teal);
+}
+.ico--purple {
+  background-color: var(--purple);
+}
+.ico--white {
+  background-color: var(--white);
+}
+.ico--white svg {
+  stroke: var(--dark);
+}
+.ico--grey {
+  background-color: var(--grey);
+}
+.ico--grey svg {
+  stroke: var(--white);
+}
+.ico--hollow {
+  background-color: transparent;
+  border: var(--width-border) solid var(--jambonz);
+}
+.ico--hollow svg {
+  stroke: var(--jambonz);
+}
+.ico--hollow.ico--dark {
+  border-color: var(--dark);
+}
+.ico--hollow.ico--dark svg {
+  stroke: var(--dark);
+}
+.ico--hollow.ico--blue {
+  border-color: var(--blue);
+}
+.ico--hollow.ico--blue svg {
+  stroke: var(--blue);
+}
+.ico--hollow.ico--teal {
+  border-color: var(--teal);
+}
+.ico--hollow.ico--teal svg {
+  stroke: var(--teal);
+}
+.ico--hollow.ico--purple {
+  border-color: var(--purple);
+}
+.ico--hollow.ico--purple svg {
+  stroke: var(--purple);
+}
+.ico--hollow.ico--white {
+  border-color: var(--white);
+}
+.ico--hollow.ico--white svg {
+  stroke: var(--white);
+}
+.ico--hollow.ico--grey {
+  border-color: var(--grey);
+}
+.ico--hollow.ico--grey svg {
+  stroke: var(--grey);
+}
+
+.icos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-gap: var(--px02);
+  flex-wrap: wrap;
+}
+
+.wrap {
+  width: 100%;
+  padding-left: var(--width-padding);
+  padding-right: var(--width-padding);
+}
+
+.pad {
+  padding-top: var(--px05);
+  padding-bottom: var(--px05);
+}
+@media (max-width: 1024px) {
+  .pad {
+    padding-top: var(--px04);
+    padding-bottom: var(--px04);
+  }
+}
+.pad img {
+  display: inline-block;
+}
+
+.pad-b {
+  padding-bottom: var(--px05);
+}
+@media (max-width: 1024px) {
+  .pad-b {
+    padding-bottom: var(--px04);
+  }
+}
+
+.pad-t {
+  padding-top: var(--px05);
+}
+@media (max-width: 1024px) {
+  .pad-t {
+    padding-top: var(--px04);
+  }
+}
+
+.btn {
+  font-family: var(--font-bold);
+  font-weight: normal;
+  white-space: nowrap;
+  font-size: var(--m-size);
+  line-height: 1;
+  padding: 23px var(--px04) 21px;
+  background-color: var(--jambonz);
+  color: var(--white);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 30px;
+  display: inline-block;
+  transition: background-color var(--base-dur) var(--base-ease), border-color var(--base-dur) var(--base-ease), color var(--base-dur) var(--base-ease);
+}
+.btn em {
+  font-family: var(--font-bold-italic);
+}
+.btn svg,
+.btn span {
+  display: inline-block;
+  vertical-align: middle;
+}
+.btn svg:last-child {
+  margin-left: var(--px02);
+}
+.btn svg:first-child {
+  margin-right: var(--px02);
+}
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+@media (max-width: 768px) {
+  .btn svg {
+    margin-right: 12px;
+    width: var(--px02);
+    height: var(--px02);
+  }
+}
+@media (max-width: 640px) {
+  .btn svg {
+    margin-right: 10px;
+    width: 14px;
+    height: 14px;
+  }
+}
+.btn:hover {
+  background-color: #e35283;
+}
+@media (max-width: 768px) {
+  .btn {
+    font-size: var(--ms-size);
+  }
+}
+.btn--dark {
+  background-color: var(--dark);
+}
+.btn--dark:hover {
+  background-color: #5a5758;
+}
+.btn--blue {
+  background-color: var(--blue);
+}
+.btn--blue:hover {
+  background-color: #4092ff;
+}
+.btn--teal {
+  background-color: var(--teal);
+}
+.btn--teal:hover {
+  background-color: #64cec4;
+}
+.btn--purple {
+  background-color: var(--purple);
+}
+.btn--purple:hover {
+  background-color: #b089c5;
+}
+.btn--white {
+  background-color: var(--white);
+  color: var(--jambonz);
+}
+.btn--white:hover {
+  background-color: #f1f1f1;
+}
+.btn--grey {
+  background-color: var(--grey);
+  color: var(--white);
+}
+.btn--grey:hover {
+  background-color: #d6d5d5;
+}
+.btn[disabled] {
+  background-color: var(--grey);
+  cursor: not-allowed;
+  color: var(--white);
+}
+.btn[disabled]:hover {
+  background-color: var(--grey);
+}
+.btn--hollow {
+  font-family: var(--font-regular);
+  background-color: transparent;
+  border: var(--width-border) solid var(--jambonz);
+  color: var(--jambonz);
+  padding: 18px var(--px03) 17px;
+}
+.btn--hollow:hover {
+  background-color: var(--jambonz);
+  color: var(--white);
+}
+@media (max-width: 640px) {
+  .btn--hollow {
+    padding: 15px var(--px03) var(--px02);
+  }
+}
+.btn--hollow.btn--dark {
+  border-color: var(--dark);
+  color: var(--dark);
+}
+.btn--hollow.btn--dark svg {
+  stroke: var(--dark);
+}
+.btn--hollow.btn--dark:hover {
+  background-color: var(--dark);
+  color: var(--white);
+}
+.btn--hollow.btn--dark:hover svg {
+  stroke: var(--white);
+}
+.btn--hollow.btn--blue {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.btn--hollow.btn--blue svg {
+  stroke: var(--blue);
+}
+.btn--hollow.btn--blue:hover {
+  background-color: var(--blue);
+  color: var(--white);
+}
+.btn--hollow.btn--blue:hover svg {
+  stroke: var(--white);
+}
+.btn--hollow.btn--teal {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.btn--hollow.btn--teal svg {
+  stroke: var(--teal);
+}
+.btn--hollow.btn--teal:hover {
+  background-color: var(--teal);
+  color: var(--white);
+}
+.btn--hollow.btn--teal:hover svg {
+  stroke: var(--white);
+}
+.btn--hollow.btn--purple {
+  border-color: var(--purple);
+  color: var(--purple);
+}
+.btn--hollow.btn--purple svg {
+  stroke: var(--purple);
+}
+.btn--hollow.btn--purple:hover {
+  background-color: var(--purple);
+  color: var(--white);
+}
+.btn--hollow.btn--purple:hover svg {
+  stroke: var(--white);
+}
+.btn--hollow.btn--white {
+  border-color: var(--white);
+  color: var(--white);
+}
+.btn--hollow.btn--white svg {
+  stroke: var(--white);
+}
+.btn--hollow.btn--white:hover {
+  background-color: var(--white);
+  color: var(--dark);
+}
+.btn--hollow.btn--white:hover svg {
+  stroke: var(--dark);
+}
+.btn--hollow.btn--grey {
+  border-color: var(--grey);
+  color: var(--grey);
+}
+.btn--hollow.btn--grey svg {
+  stroke: var(--grey);
+}
+.btn--hollow.btn--grey:hover {
+  background-color: var(--grey);
+  color: var(--white);
+}
+.btn--hollow.btn--grey:hover svg {
+  stroke: var(--white);
+}
+.btn--hollow[disabled] {
+  background-color: transparent;
+  border-color: var(--grey);
+  cursor: not-allowed;
+  color: var(--grey);
+}
+.btn--hollow[disabled] svg {
+  stroke: var(--grey);
+}
+.btn--hollow[disabled]:hover {
+  background-color: transparent;
+  border-color: var(--grey);
+  color: var(--grey);
+}
+.btn--hollow[disabled]:hover svg {
+  stroke: var(--grey);
+}
+.btn--small {
+  font-family: var(--font-medium);
+  font-size: var(--ms-size);
+  padding: 10px 26px;
+}
+@media (max-width: 768px) {
+  .btn--small {
+    font-size: var(--mxs-size);
+  }
+}
+
+@media (max-width: 768px) {
+  .btn:not(.btn--hollow, .btn--small) {
+    padding: 18px 46px;
+  }
+}
+
+.btns {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  grid-gap: var(--px02);
+}
+.btns--left {
+  justify-content: flex-start;
+}
+.btns--right {
+  justify-content: flex-end;
+}
+
+html,
+body {
+  font-family: var(--font-regular);
+  letter-spacing: var(--letter-space-1);
+  color: var(--dark);
+}
+
+a {
+  color: var(--jambonz);
+  text-decoration: none;
+  transition: color var(--base-dur) var(--base-ease);
+}
+
+strong {
+  font-family: var(--font-bold);
+  font-weight: normal;
+}
+strong em {
+  font-family: var(--font-bold-italic);
+}
+
+em {
+  font-family: var(--font-regular-italic);
+}
+
+/*
+ * Buttons have their own inline svg/span styles
+ * This className lets us inline a flat icon with text
+ */
+.i {
+  /*
+   * Using React Feather
+   * https://github.com/feathericons/react-feather
+   * Default size is 24x24 for SVG icons
+   * Sizing can be passed in component JS as in:
+   * <Icon size={18}><GitHub /></Icon>
+   * However the inline, in-text SVG icons need to be
+   *    responsive with the text scaling so some CSS
+   *    can achieve the desired result in this case:
+   *    e.g. <span>text</span><Icons.ExternalLink />
+   *
+   */
+}
+.i em,
+.i svg,
+.i span,
+.i strong {
+  display: inline;
+  vertical-align: middle;
+}
+.i svg:last-child {
+  margin-left: var(--px01);
+}
+.i svg:first-child {
+  margin-right: var(--px01);
+}
+@media (max-width: 1024px) {
+  .i svg {
+    width: var(--svg01);
+    height: var(--svg01);
+  }
+}
+@media (max-width: 768px) {
+  .i svg {
+    width: var(--svg00);
+    height: var(--svg00);
+  }
+}
+
+.h1,
+h1 {
+  font-size: var(--h1-size);
+  line-height: 1.33;
+  letter-spacing: var(--letter-space-5);
+  font-family: var(--font-bold);
+  font-weight: normal;
+}
+.h1 em,
+h1 em {
+  font-family: var(--font-bold-italic);
+}
+@media (max-width: 1024px) {
+  .h1,
+h1 {
+    font-size: var(--h2-size);
+  }
+}
+@media (max-width: 768px) {
+  .h1,
+h1 {
+    font-size: var(--h3-size);
+  }
+}
+@media (max-width: 640px) {
+  .h1,
+h1 {
+    font-size: var(--h4-size);
+  }
+}
+
+.h2,
+h2 {
+  font-size: var(--h2-size);
+  line-height: 1.35;
+  letter-spacing: var(--letter-space-5);
+  font-family: var(--font-bold);
+  font-weight: normal;
+}
+.h2 em,
+h2 em {
+  font-family: var(--font-bold-italic);
+}
+@media (max-width: 1024px) {
+  .h2,
+h2 {
+    font-size: var(--h3-size);
+  }
+}
+@media (max-width: 768px) {
+  .h2,
+h2 {
+    font-size: var(--h4-size);
+  }
+}
+@media (max-width: 640px) {
+  .h2,
+h2 {
+    font-size: var(--h5-size);
+  }
+}
+
+.h3,
+h3 {
+  font-size: var(--h3-size);
+  line-height: 1.33;
+  letter-spacing: var(--letter-space-4);
+  font-family: var(--font-bold);
+  font-weight: normal;
+}
+.h3 em,
+h3 em {
+  font-family: var(--font-bold-italic);
+}
+@media (max-width: 1024px) {
+  .h3,
+h3 {
+    font-size: var(--h4-size);
+  }
+}
+@media (max-width: 768px) {
+  .h3,
+h3 {
+    font-size: var(--h5-size);
+  }
+}
+@media (max-width: 640px) {
+  .h3,
+h3 {
+    font-size: var(--h6-size);
+  }
+}
+
+.h4,
+h4 {
+  font-size: var(--h4-size);
+  line-height: 1.5;
+  letter-spacing: var(--letter-space-3);
+  font-family: var(--font-medium);
+}
+.h4 em,
+h4 em {
+  font-family: var(--font-medium-italic);
+}
+@media (max-width: 1024px) {
+  .h4,
+h4 {
+    font-size: var(--h5-size);
+  }
+}
+@media (max-width: 768px) {
+  .h4,
+h4 {
+    font-size: var(--h6-size);
+  }
+}
+@media (max-width: 640px) {
+  .h4,
+h4 {
+    font-size: var(--p-size);
+  }
+}
+
+.h5,
+h5 {
+  font-size: var(--h5-size);
+  line-height: 1.67;
+  letter-spacing: var(--letter-space-2);
+  font-family: var(--font-medium);
+}
+.h5 em,
+h5 em {
+  font-family: var(--font-medium-italic);
+}
+@media (max-width: 1024px) {
+  .h5,
+h5 {
+    font-size: var(--h6-size);
+  }
+}
+@media (max-width: 768px) {
+  .h5,
+h5 {
+    font-size: var(--p-size);
+  }
+}
+
+.h6,
+h6 {
+  font-size: var(--h6-size);
+  line-height: 1.8;
+  letter-spacing: var(--letter-space-2);
+  font-family: var(--font-medium);
+}
+.h6 em,
+h6 em {
+  font-family: var(--font-medium-italic);
+}
+@media (max-width: 1024px) {
+  .h6,
+h6 {
+    font-size: var(--p-size);
+  }
+}
+@media (max-width: 768px) {
+  .h6,
+h6 {
+    font-size: var(--m-size);
+  }
+}
+
+.p,
+p {
+  font-size: var(--p-size);
+  line-height: 1.9;
+}
+@media (max-width: 768px) {
+  .p,
+p {
+    font-size: var(--m-size);
+  }
+}
+@media (max-width: 640px) {
+  .p,
+p {
+    font-size: var(--ms-size);
+  }
+}
+
+.m {
+  font-size: var(--m-size);
+  line-height: 1.9;
+}
+@media (max-width: 1024px) {
+  .m {
+    font-size: var(--ms-size);
+  }
+}
+
+.ms {
+  font-size: var(--ms-size);
+  line-height: 2;
+}
+
+.mxs {
+  font-size: var(--mxs-size);
+  line-height: 2;
+}
+
+.m span,
+.ms span,
+.mxs span,
+.p span,
+p span,
+.h1 span,
+h1 span,
+.h2 span,
+h2 span,
+.h3 span,
+h3 span,
+.h4 span,
+h4 span,
+.h5 span,
+h5 span,
+.h6 span,
+h6 span {
+  color: var(--jambonz);
+}
+
+.med {
+  font-family: var(--font-medium);
+}
+.med em {
+  font-family: var(--font-medium-italic);
+}
+
+.txt--dark {
+  color: var(--dark);
+}
+
+.txt--jam {
+  color: var(--jambonz);
+}
+
+.txt--teal {
+  color: var(--teal);
+}
+
+.txt--blue {
+  color: var(--blue);
+}
+
+.txt--purple {
+  color: var(--purple);
+}
+
+.txt--white {
+  color: var(--white);
+}
+
+.txt--red {
+  color: var(--red);
+}
+
+.txt--green {
+  color: var(--green);
+}
+
+.txt--grey {
+  color: var(--grey);
+}
+
+.bg--jam {
+  background-color: var(--jambonz);
+  color: var(--white);
+}
+
+.bg--black {
+  background-color: var(--black);
+  color: var(--white);
+}
+
+.bg--dark {
+  background-color: var(--dark);
+  color: var(--white);
+}
+
+.bg--grey {
+  background-color: var(--grey-light);
+}
+
+.bg--pink {
+  background-color: var(--pink);
+}
+
+.bg--blue {
+  background-color: var(--blue);
+}
+
+.bg--purple {
+  background-color: var(--purple);
+}
+
+.bg--teal {
+  background-color: var(--teal);
+}
+
+/*# sourceMappingURL=styles.css.map */

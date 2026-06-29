@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+# original design handoff archive (reference is unpacked under docs/design-reference)
+Call center supervision platform.zip

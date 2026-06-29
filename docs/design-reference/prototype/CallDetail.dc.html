@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/jambonz-ui-kit-ee30fa69-a75c-4edd-bc14-26d7fe76d71b/fonts/fonts.css">
+<link rel="stylesheet" href="_ds/jambonz-ui-kit-ee30fa69-a75c-4edd-bc14-26d7fe76d71b/_ds_bundle.css">
+<link rel="stylesheet" href="_ds/jambonz-ui-kit-ee30fa69-a75c-4edd-bc14-26d7fe76d71b/styles.css">
+<style>
+@keyframes cd-eq { 0%,100%{ transform:scaleY(0.28); } 50%{ transform:scaleY(1); } }
+.cd-scroll::-webkit-scrollbar{ width:8px; }
+.cd-scroll::-webkit-scrollbar-thumb{ background:#d9d8d8; border-radius:8px; }
+</style>
+</helmet>
+<div style="height:100%; display:flex; flex-direction:column; background:var(--white); font-family:var(--font-regular); color:var(--dark); min-height:0;">
+
+  <sc-if value="{{ noCall }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:#9a9899; padding:40px; text-align:center;">
+      <div style="width:64px; height:64px; border-radius:50%; background:var(--grey-light); display:flex; align-items:center; justify-content:center;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#bdbcbc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      </div>
+      <div style="font-family:var(--font-medium); font-size:1.05rem; color:#6b6869;">No room selected</div>
+      <div style="font-size:0.9rem; max-width:240px; line-height:1.5;">Select a room from the list to view its participants and tap in to monitor.</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasCall }}" hint-placeholder-val="{{ true }}">
+
+    <!-- Header -->
+    <div style="padding:22px 24px 18px; border-bottom:1px solid var(--grey-light);">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
+        <div style="display:flex; gap:14px; align-items:center; min-width:0;">
+          <div style="width:48px; height:48px; border-radius:13px; flex:none; display:flex; align-items:center; justify-content:center; color:var(--white); background:var(--purple);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <div style="min-width:0;">
+            <div style="font-family:var(--font-bold); font-size:1.4rem; letter-spacing:var(--letter-space-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ title }}</div>
+            <div style="margin-top:5px; color:#7a7778; font-size:0.9rem; display:flex; align-items:center; gap:8px;">
+              <span style="font-family:var(--font-medium); color: {{ agentCountColor }};">{{ agentCountLabel }}</span>
+              <span style="color:#d2d0d0;">·</span>
+              <span>{{ otherCountLabel }}</span>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:right; flex:none;">
+          <div style="font-family:var(--font-bold); font-size:1.6rem; font-variant-numeric:tabular-nums; letter-spacing:var(--letter-space-2);">{{ durStr }}</div>
+          <div style="display:inline-flex; align-items:center; gap:6px; margin-top:3px; font-size:0.78rem; color:#9a9899; font-family:var(--font-medium);"><span style="width:7px; height:7px; border-radius:50%; background:var(--green);"></span>Active</div>
+        </div>
+      </div>
+
+      <!-- Participants -->
+      <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
+        <sc-for list="{{ participants }}" as="p" hint-placeholder-count="3">
+          <span style="display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:8px; background: {{ p.chipBg }}; border:1px solid {{ p.chipBorder }}; font-size:0.85rem;">
+            <span style="width:9px; height:9px; border-radius:50%; background: {{ p.color }};"></span>{{ p.short }}<span style="font-size:0.68rem; font-family:var(--font-medium); text-transform:uppercase; letter-spacing:0.4px; color: {{ p.tagColor }};">{{ p.tagLabel }}</span>
+          </span>
+        </sc-for>
+        <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px; font-size:0.85rem; white-space:nowrap; color: {{ supChipColor }}; background: {{ supChipBg }}; border:1px solid {{ supChipBorder }};">
+          <span style="width:9px; height:9px; border-radius:50%; flex:none; background: {{ supChipDot }};"></span>You <span style="opacity:0.7;">· {{ supChipRole }}</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Control bar -->
+    <div style="padding:14px 24px; border-bottom:1px solid var(--grey-light); display:flex; align-items:center; gap:16px; background:#fcfbfb; min-height:62px;">
+      <div style="display:flex; gap:8px; flex:none;">
+        <!-- Monitor -->
+        <sc-if value="{{ monActive }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ clickMonitor }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; cursor:pointer; white-space:nowrap; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--blue); color:var(--white); background:var(--blue);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 1 2 2h1a2 2 0 0 1 2-2v-3a2 2 0 0 1-2-2H3z"></path></svg>
+            Listen
+          </button>
+        </sc-if>
+        <sc-if value="{{ monInactive }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ clickMonitor }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; cursor:pointer; white-space:nowrap; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--grey); color:#5a5758; background:var(--white);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 1 2 2h1a2 2 0 0 1 2-2v-3a2 2 0 0 1-2-2H3z"></path></svg>
+            Listen
+          </button>
+        </sc-if>
+
+        <!-- Coach (only when agents present) -->
+        <sc-if value="{{ hasAgents }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ coachActive }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ clickCoach }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; cursor:pointer; white-space:nowrap; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--purple); color:var(--white); background:var(--purple);">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+              Coach
+            </button>
+          </sc-if>
+          <sc-if value="{{ coachInactive }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ clickCoach }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; cursor:pointer; white-space:nowrap; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--grey); color:#5a5758; background:var(--white);">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+              Coach
+            </button>
+          </sc-if>
+        </sc-if>
+
+        <!-- Enter Room -->
+        <sc-if value="{{ enterActive }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ clickEnter }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; cursor:pointer; white-space:nowrap; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--jambonz); color:var(--white); background:var(--jambonz);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            Enter Room
+          </button>
+        </sc-if>
+        <sc-if value="{{ enterInactive }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ clickEnter }}" style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; cursor:pointer; white-space:nowrap; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--grey); color:#5a5758; background:var(--white);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            Enter Room
+          </button>
+        </sc-if>
+      </div>
+
+      <div style="flex:1; display:flex; align-items:center; gap:12px; min-width:0;">
+        <sc-if value="{{ listening }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; align-items:flex-end; gap:3px; height:24px;">
+            <span style="width:3px; height:100%; border-radius:3px; background: {{ waveColor }}; transform-origin:bottom; animation: cd-eq 700ms ease-in-out infinite; animation-delay:0ms;"></span>
+            <span style="width:3px; height:100%; border-radius:3px; background: {{ waveColor }}; transform-origin:bottom; animation: cd-eq 700ms ease-in-out infinite; animation-delay:120ms;"></span>
+            <span style="width:3px; height:100%; border-radius:3px; background: {{ waveColor }}; transform-origin:bottom; animation: cd-eq 700ms ease-in-out infinite; animation-delay:260ms;"></span>
+            <span style="width:3px; height:100%; border-radius:3px; background: {{ waveColor }}; transform-origin:bottom; animation: cd-eq 700ms ease-in-out infinite; animation-delay:80ms;"></span>
+            <span style="width:3px; height:100%; border-radius:3px; background: {{ waveColor }}; transform-origin:bottom; animation: cd-eq 700ms ease-in-out infinite; animation-delay:340ms;"></span>
+          </div>
+          <span style="font-size:0.88rem; font-family:var(--font-medium); color: {{ waveColor }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ modeStatus }}</span>
+        </sc-if>
+        <sc-if value="{{ idle }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:0.85rem; color:#9a9899;">You are not connected to this room — the participants won't hear you.</span>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ listening }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ clickStop }}" style="display:inline-flex; align-items:center; gap:7px; padding:10px 16px; border-radius:9px; cursor:pointer; flex:none; font-family:var(--font-medium); font-size:0.9rem; border:1.5px solid var(--grey); color:#6b6869; background:var(--white);" style-hover="border-color:#e10e22; color:#e10e22;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          {{ leaveLabel }}
+        </button>
+      </sc-if>
+    </div>
+
+    <!-- Transcript header + toggle -->
+    <div style="flex:none; padding:14px 24px 10px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px; color:#7a7778; font-family:var(--font-medium);">Live transcript</span>
+        <sc-if value="{{ transcriptOn }}" hint-placeholder-val="{{ false }}"><span style="width:7px; height:7px; border-radius:50%; background:var(--red); animation: cd-eq 1200ms ease-in-out infinite;"></span></sc-if>
+      </div>
+      <sc-if value="{{ transcriptOn }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toggleTranscript }}" style="display:inline-flex; align-items:center; gap:9px; border:none; background:none; cursor:pointer; padding:0; font-family:var(--font-medium); font-size:0.8rem; color:var(--jambonz);">
+          On
+          <span style="width:40px; height:23px; border-radius:23px; background:var(--jambonz); position:relative; flex:none;"><span style="position:absolute; top:2.5px; left:19px; width:18px; height:18px; border-radius:50%; background:var(--white); box-shadow:0 1px 2px rgba(0,0,0,0.3);"></span></span>
+        </button>
+      </sc-if>
+      <sc-if value="{{ transcriptOff }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ toggleTranscript }}" style="display:inline-flex; align-items:center; gap:9px; border:none; background:none; cursor:pointer; padding:0; font-family:var(--font-medium); font-size:0.8rem; color:#9a9899;">
+          Off
+          <span style="width:40px; height:23px; border-radius:23px; background:var(--grey); position:relative; flex:none;"><span style="position:absolute; top:2.5px; left:2.5px; width:18px; height:18px; border-radius:50%; background:var(--white); box-shadow:0 1px 2px rgba(0,0,0,0.3);"></span></span>
+        </button>
+      </sc-if>
+    </div>
+
+    <!-- Transcript body: ON -->
+    <sc-if value="{{ transcriptOn }}" hint-placeholder-val="{{ true }}">
+      <div ref="{{ scrollRef }}" class="cd-scroll" style="flex:1; overflow-y:auto; padding:2px 24px 14px; min-height:0; background:var(--white);">
+        <sc-if value="{{ waitingForSpeech }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:14px 10px; color:#a9a7a8; font-size:0.9rem; font-style:italic;">Transcribing — waiting for speech…</div>
+        </sc-if>
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+          <div style="display:flex; gap:12px; padding:9px 10px; margin:2px 0; border-radius:10px; background: {{ row.rowBg }};">
+            <div style="width:30px; height:30px; flex:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-bold); font-size:0.66rem; color:var(--white); background: {{ row.color }};">{{ row.tag }}</div>
+            <div style="min-width:0; flex:1;">
+              <div style="display:flex; align-items:baseline; gap:9px; flex-wrap:wrap;">
+                <span style="font-family:var(--font-medium); font-size:0.88rem; color: {{ row.color }};">{{ row.speaker }}</span>
+                <span style="font-size:0.72rem; color:#b3b1b2; font-variant-numeric:tabular-nums;">{{ row.t }}</span>
+                <span style="font-size:0.7rem; font-family:var(--font-medium); color: {{ row.noteColor }};">{{ row.note }}</span>
+              </div>
+              <div style="font-size:0.96rem; line-height:1.5; color:#3a3637; margin-top:2px; text-wrap:pretty;">{{ row.text }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- Transcript body: OFF -->
+    <sc-if value="{{ transcriptOff }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:13px; padding:40px; min-height:0; background:var(--white);">
+        <div style="width:60px; height:60px; border-radius:14px; background:var(--grey-light); display:flex; align-items:center; justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9a9899" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line></svg>
+        </div>
+        <div style="font-family:var(--font-medium); font-size:1.02rem; color:#6b6869;">Transcript is off</div>
+        <div style="font-size:0.9rem; color:#9a9899; max-width:310px; line-height:1.55;">Turn on transcription to capture a live, speaker-labelled record of this room. It runs independently of monitoring.</div>
+        <button onClick="{{ toggleTranscript }}" style="margin-top:4px; padding:11px 20px; border-radius:10px; border:none; cursor:pointer; font-family:var(--font-medium); font-size:0.9rem; color:var(--white); background:var(--jambonz);">Turn on transcript</button>
+      </div>
+    </sc-if>
+
+    <!-- Speak input: COACH (private to agents) -->
+    <sc-if value="{{ coachActive }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:12px 24px 16px; border-top:1px solid var(--grey-light); background:#faf6fd;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:0.78rem; font-family:var(--font-medium); color:var(--purple);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Coaching the agents privately — other participants will not hear this
+        </div>
+        <div style="display:flex; gap:10px;">
+          <input value="{{ coachDraft }}" onInput="{{ onCoachInput }}" onKeyDown="{{ onCoachKey }}" placeholder="Type a private coaching note to the agents…" style="flex:1; padding:12px 14px; border-radius:10px; border:1.5px solid var(--grey); font-family:var(--font-regular); font-size:0.95rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--purple);" />
+          <button onClick="{{ clickSend }}" style="padding:12px 22px; border-radius:10px; border:none; cursor:pointer; font-family:var(--font-medium); font-size:0.9rem; color:var(--white); background:var(--purple); display:inline-flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            Send
+          </button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- Speak input: IN ROOM (everyone hears) -->
+    <sc-if value="{{ enterActive }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:12px 24px 16px; border-top:1px solid var(--grey-light); background:#fff6f9;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:0.78rem; font-family:var(--font-medium); color:var(--jambonz);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+          You are in the room — everyone can hear you
+        </div>
+        <div style="display:flex; gap:10px;">
+          <input value="{{ coachDraft }}" onInput="{{ onCoachInput }}" onKeyDown="{{ onCoachKey }}" placeholder="Type a message for everyone in the room…" style="flex:1; padding:12px 14px; border-radius:10px; border:1.5px solid var(--grey); font-family:var(--font-regular); font-size:0.95rem; outline:none; background:var(--white); color:var(--dark);" style-focus="border-color:var(--jambonz);" />
+          <button onClick="{{ clickSend }}" style="padding:12px 22px; border-radius:10px; border:none; cursor:pointer; font-family:var(--font-medium); font-size:0.9rem; color:var(--white); background:var(--jambonz); display:inline-flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            Send
+          </button>
+        </div>
+      </div>
+    </sc-if>
+
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { coachDraft: "" };
+    this.scrollRef = React.createRef();
+  }
+  componentDidUpdate(prevProps) {
+    const el = this.scrollRef.current;
+    if (!el) return;
+    const prevLen = (prevProps.lines || []).length;
+    const len = (this.props.lines || []).length;
+    if (len !== prevLen) el.scrollTop = el.scrollHeight;
+  }
+  fmtDur(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    if (sec < 60) return "0:" + String(sec).padStart(2, "0");
+    return Math.floor(sec / 60) + "m";
+  }
+  isPhone(s) { return /^[+(]/.test((s || "").trim()) || /^[\d().\s-]+$/.test((s || "").trim()); }
+  initialsOf(name) {
+    if (this.isPhone(name)) return "#";
+    return (name || "").replace(/[,.]/g, " ").split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join("").toUpperCase() || "#";
+  }
+  send() {
+    const t = (this.state.coachDraft || "").trim();
+    if (!t) return;
+    if (this.props.onSend) this.props.onSend(t);
+    this.setState({ coachDraft: "" });
+  }
+  renderVals() {
+    const call = this.props.call || null;
+    let mode = this.props.listenMode || "idle"; // idle | monitor | coach | enter
+    if (!call) return { noCall: true, hasCall: false };
+
+    const parts = call.participants || [];
+    const agents = parts.filter(p => p.tag === "agent");
+    const others = parts.filter(p => p.tag !== "agent");
+    const hasAgents = agents.length > 0;
+    // Coaching requires agents; guard against a stale coach mode if none.
+    if (mode === "coach" && !hasAgents) mode = "monitor";
+
+    const listening = mode !== "idle";
+    const idle = mode === "idle";
+
+    const participants = parts.map(p => {
+      const isAgent = p.tag === "agent";
+      return {
+        short: p.short, color: p.color,
+        tagLabel: p.tag ? p.tag : "",
+        tagColor: isAgent ? "var(--teal)" : "#a9a7a8",
+        chipBg: isAgent ? "#eafaf8" : "var(--grey-light)",
+        chipBorder: isAgent ? "#cdeeea" : "var(--grey-light)",
+      };
+    });
+
+    const modeStatusMap = {
+      monitor: "Monitoring silently — the participants cannot hear you",
+      coach: "Coaching — only the agents hear you",
+      enter: "In the room — everyone can hear you",
+    };
+    const waveColorMap = { monitor: "var(--blue)", coach: "var(--purple)", enter: "var(--jambonz)" };
+
+    const supMap = {
+      idle:    { role: "not listening", color: "#9a9899", bg: "var(--grey-light)", border: "var(--grey-light)", dot: "var(--grey)" },
+      monitor: { role: "listening",     color: "var(--blue)",   bg: "#e6f0ff", border: "#cfe0ff", dot: "var(--blue)" },
+      coach:   { role: "coaching",      color: "var(--purple)", bg: "#f3ecf7", border: "#e3d2ee", dot: "var(--purple)" },
+      enter:   { role: "in room",       color: "var(--jambonz)",bg: "var(--pink)", border: "#f6d3df", dot: "var(--jambonz)" },
+    };
+    const sup = supMap[mode];
+
+    const lines = this.props.lines || [];
+    const rows = lines.map((ln, i) => {
+      if (ln.kind === "supervisor") {
+        const coach = ln.channel === "coach";
+        return {
+          speaker: "You · Supervisor", tag: "SU",
+          color: coach ? "var(--purple)" : "var(--jambonz)",
+          rowBg: coach ? "#f7f1fb" : "var(--pink)",
+          note: coach ? "🔒 private to agents" : "live to all",
+          noteColor: coach ? "var(--purple)" : "var(--jambonz)",
+          text: ln.text, t: ln.t, key: i,
+        };
+      }
+      return {
+        speaker: ln.speaker, color: ln.color, rowBg: "transparent",
+        note: ln.tag === "agent" ? "agent" : "", noteColor: "var(--teal)",
+        tag: this.initialsOf(ln.speaker) || "•", text: ln.text, t: ln.t, key: i,
+      };
+    });
+
+    const transcriptOn = !!this.props.transcriptOn;
+    return {
+      hasCall: true, noCall: false,
+      title: call.title,
+      agentCountLabel: agents.length + (agents.length === 1 ? " agent" : " agents"),
+      agentCountColor: hasAgents ? "var(--teal)" : "#9a9899",
+      otherCountLabel: others.length + (others.length === 1 ? " other" : " others"),
+      hasAgents,
+      participants,
+      durStr: this.fmtDur(call.duration),
+      listening, idle,
+      monActive: mode === "monitor", monInactive: mode !== "monitor",
+      coachActive: mode === "coach", coachInactive: mode !== "coach",
+      enterActive: mode === "enter", enterInactive: mode !== "enter",
+      modeStatus: modeStatusMap[mode] || "", waveColor: waveColorMap[mode] || "var(--blue)",
+      leaveLabel: mode === "enter" ? "Leave room" : "Stop",
+      supChipRole: sup.role, supChipColor: sup.color, supChipBg: sup.bg, supChipBorder: sup.border, supChipDot: sup.dot,
+      rows,
+      coachDraft: this.state.coachDraft,
+      transcriptOn, transcriptOff: !transcriptOn,
+      waitingForSpeech: transcriptOn && rows.length === 0,
+      clickMonitor: () => this.props.onSetMode && this.props.onSetMode("monitor"),
+      clickCoach: () => this.props.onSetMode && this.props.onSetMode("coach"),
+      clickEnter: () => this.props.onSetMode && this.props.onSetMode("enter"),
+      clickStop: () => this.props.onLeave && this.props.onLeave(),
+      clickSend: () => this.send(),
+      onCoachInput: (e) => this.setState({ coachDraft: e.target.value }),
+      onCoachKey: (e) => { if (e.key === "Enter") this.send(); },
+      toggleTranscript: () => this.props.onToggleTranscript && this.props.onToggleTranscript(),
+    };
+  }
+}
+</script>
+</body>
+</html>

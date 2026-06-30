@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@jambonz/client-sdk-web": "^0.1.0",
-    "@jambonz/ui-kit": "^0.0.13",
+    "@jambonz/client-sdk-web": "^0.1.4",
+    "@jambonz/ui-kit": "^0.0.22",
     "@room-monitor/shared": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

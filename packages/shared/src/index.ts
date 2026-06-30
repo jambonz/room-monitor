@@ -70,7 +70,25 @@ export interface TranscriptStateMessage {
   on: boolean;
 }
 
+/** Sent once after a successful `connect`. */
+export interface ConnectedMessage {
+  type: 'connected';
+  /** Correlation id the browser passes as a SIP header (X-Session-Id) when it
+   *  places the WebRTC call, so the backend can link the leg to this session. */
+  sessionId: string;
+  /** wss:// URL of the jambonz SBC for the WebRTC SDK to register against. */
+  sbcUrl: string;
+}
+
+/** Sent when `connect` fails (bad credentials / unreachable system). */
+export interface ConnectErrorMessage {
+  type: 'connectError';
+  message: string;
+}
+
 export type ServerMessage =
+  | ConnectedMessage
+  | ConnectErrorMessage
   | RoomsMessage
   | SupervisorStateMessage
   | TranscriptMessage
@@ -79,6 +97,15 @@ export type ServerMessage =
 // ---------------------------------------------------------------------------
 // Data-WS messages: client → server
 // ---------------------------------------------------------------------------
+
+/** Authenticate the session with a jambonz system (REST credentials only —
+ *  the SIP username/password stay in the browser for the WebRTC SDK). */
+export interface ConnectCommand {
+  type: 'connect';
+  baseUrl: string;
+  accountSid: string;
+  apiKey: string;
+}
 
 export interface SelectCommand {
   type: 'select';
@@ -97,7 +124,11 @@ export interface TranscriptToggleCommand {
   on: boolean;
 }
 
-export type ClientMessage = SelectCommand | SetModeCommand | TranscriptToggleCommand;
+export type ClientMessage =
+  | ConnectCommand
+  | SelectCommand
+  | SetModeCommand
+  | TranscriptToggleCommand;
 
 // ---------------------------------------------------------------------------
 // Derived helpers (used by both ends)

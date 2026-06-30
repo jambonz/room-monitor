@@ -1,26 +1,24 @@
-import pino from 'pino';
+import http from 'node:http';
 import { config } from './config.js';
+import { logger } from './logger.js';
+import { attachDataWs } from './data-ws.js';
+import { startJambonzApp } from './jambonz-app.js';
 
 /**
- * Room Monitor backend entry point.
+ * Room Monitor backend.
  *
- * Wires the four responsibilities (see docs/ARCHITECTURE.md §3):
- *   1. @jambonz/sdk websocket app — owns the supervisor's inbound WebRTC call
- *      leg, joins it to the conference, drives Listen/Coach/Enter.
- *   2. @jambonz/sdk REST client — room discovery + conference listen-fork control.
- *   3. WS sink + Deepgram — receives the room-mix fork, runs diarized STT.
- *   4. Data WS server — fans rooms/transcript/state to the frontend.
- *
- * Implementation of each module follows once the platform PRs land the
- * enriched /Conferences listing and the conference-level /listen control.
+ * Two HTTP servers (see docs/ARCHITECTURE.md §3):
+ *   - browser server (PORT): the data-WS the frontend connects to.
+ *   - jambonz server (JAMBONZ_WS_APP_PORT): the @jambonz/sdk ws app — the
+ *     supervisor call-control pipe (/supervisor) and the conference listen-fork
+ *     audio sink (/fork) that feeds Deepgram.
  */
-const logger = pino({ name: 'room-monitor' });
-
 async function main(): Promise<void> {
-  logger.info({ port: config.port }, 'room-monitor backend starting');
-  // TODO: start data-WS server (data-ws.ts)
-  // TODO: start @jambonz/sdk websocket app (jambonz-app.ts)
-  // TODO: start fork WS sink + Deepgram pipeline (transcription.ts)
+  const browserServer = http.createServer();
+  attachDataWs(browserServer, '/ws');
+  browserServer.listen(config.port, () => logger.info({ port: config.port }, 'data-WS server listening (/ws)'));
+
+  startJambonzApp();
 }
 
 main().catch((err) => {

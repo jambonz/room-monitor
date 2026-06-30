@@ -9,3 +9,4 @@ build/
 coverage/
 # original design handoff archive (reference is unpacked under docs/design-reference)
 Call center supervision platform.zip
+*.tsbuildinfo

@@ -1,21 +1,40 @@
-/**
- * Room Monitor — app shell.
- *
- * The UI specification (login, top bar, room rail, detail pane with the
- * Listen/Coach/Enter control bar and the live transcript) is in
- * docs/design-reference/. This shell will grow into:
- *   - <Login>      connect form (Base URL, Account SID, API key, user/pass)
- *   - <Console>    top bar + <RoomRail> + <RoomDetail>
- * wired to the backend over the data WS (see @room-monitor/shared) and to the
- * WebRTC SDK for the supervisor's media leg.
- */
+import { useRoomMonitor } from './useRoomMonitor.js';
+import { Login } from './components/Login.js';
+import { TopBar } from './components/TopBar.js';
+import { RoomRail } from './components/RoomRail.js';
+import { RoomDetail } from './components/RoomDetail.js';
+
 export function App() {
+  const rm = useRoomMonitor();
+
+  if (rm.phase !== 'console') {
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Login error={rm.loginError} busy={rm.phase === 'connecting'} onConnect={rm.connect} />
+      </div>
+    );
+  }
+
+  const room = rm.rooms.find((r) => r.id === rm.selectedRoomId) ?? null;
+  const lines = rm.selectedRoomId ? rm.transcriptsByRoom[rm.selectedRoomId] ?? [] : [];
+
   return (
-    <main style={{ fontFamily: 'system-ui', padding: 24 }}>
-      <h1>
-        <span style={{ color: '#da1c5c' }}>jam</span>bonz · Call Monitor
-      </h1>
-      <p>Scaffold — see docs/ARCHITECTURE.md.</p>
-    </main>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <TopBar liveCount={rm.rooms.length} username={rm.identity.username} accountSid={rm.identity.accountSid} onSignOut={rm.signOut} />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <RoomRail rooms={rm.rooms} selectedRoomId={rm.selectedRoomId} mode={rm.mode} onSelect={rm.selectRoom} />
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+          <RoomDetail
+            room={room}
+            mode={rm.mode}
+            transcriptOn={rm.transcriptOn}
+            lines={lines}
+            onSetMode={rm.setMode}
+            onStop={rm.stop}
+            onToggleTranscript={rm.toggleTranscript}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

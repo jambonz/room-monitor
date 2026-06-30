@@ -8,13 +8,15 @@
 /** The supervisor's engagement with the selected room. */
 export type SupervisorMode = 'idle' | 'monitor' | 'coach' | 'enter';
 
-/** A member of a room (conference). */
+/** A member of a room (conference). Matches the api-server wire shape. */
 export interface Participant {
   /** jambonz call_sid of this member's leg — used to address conferenceParticipantAction. */
-  callSid: string;
+  call_sid: string;
   /** Caller id when we have one, otherwise the bare phone number. */
   label: string;
-  /** True when this member carries memberTag === "agent". */
+  /** The member's conference tag ('agent' marks an agent; '' otherwise). */
+  memberTag: string;
+  /** Convenience: memberTag === "agent". */
   isAgent: boolean;
 }
 

@@ -47,34 +47,33 @@ function header(session: Session, name: string): string | undefined {
 }
 
 /**
- * One application, two call flows, split by headers:
+ * One application, three call flows:
  *   - X-Session-Id present  → the supervisor console's monitoring leg
- *   - X-Role present        → a demo participant (phone page / traffic kit)
+ *   - X-Role present        → a phone-page / traffic-kit participant
+ *   - neither               → a plain inbound caller (e.g. a DID routed to this
+ *                             application): joins as a regular participant, room
+ *                             from DEMO_DEFAULT_ROOM or derived from the DID.
  */
 function handleCall(session: Session): void {
   if (header(session, 'X-Session-Id')) return handleSupervisorCall(session);
-  if (header(session, 'X-Role')) return handleDemoParticipant(session);
-  logger.warn({ callSid: session.callSid, from: session.from }, 'call without X-Session-Id or X-Role — declining');
-  session.hangup().send();
+  return handleParticipant(session);
 }
 
 /**
- * Demo participant: joins the named room as an agent (memberTag "agent" — which
- * gates the console's Coach button and receives coached audio) or as a plain
- * caller. First participant creates the room (startConferenceOnEnter).
+ * Participant leg: joins the room as an agent (memberTag "agent" — which gates
+ * the console's Coach button and receives coached audio) or as a plain caller.
+ * First participant creates the room (startConferenceOnEnter).
  */
-function handleDemoParticipant(session: Session): void {
-  const roomName = header(session, 'X-Room');
+function handleParticipant(session: Session): void {
   const role = (header(session, 'X-Role') ?? '').toLowerCase();
-  if (!roomName) {
-    logger.warn({ callSid: session.callSid }, 'demo participant missing X-Room');
-    session.hangup().send();
-    return;
-  }
   const isAgent = role === 'agent';
+  // room precedence: explicit header (phone page / traffic kit) → configured
+  // default → the dialed number (each DID becomes its own room)
+  const dialed = (session.to ?? '').replace(/^sip:/, '').split('@')[0];
+  const roomName = header(session, 'X-Room') || config.demoDefaultRoom || `room-${dialed}` || 'lobby';
   session
     .answer()
-    .say({ text: `Joining ${roomName} as ${isAgent ? 'an agent' : 'a caller'}.` })
+    .say({ text: `Joining ${roomName.replace(/-/g, ' ')} as ${isAgent ? 'an agent' : 'a caller'}.` })
     .conference({
       name: roomName,
       startConferenceOnEnter: true,
@@ -82,7 +81,7 @@ function handleDemoParticipant(session: Session): void {
       ...(isAgent ? { memberTag: 'agent' } : {}),
     })
     .send();
-  logger.info({ callSid: session.callSid, roomName, role }, 'demo participant joined conference');
+  logger.info({ callSid: session.callSid, from: session.from, roomName, role: role || 'caller' }, 'participant joined conference');
 }
 
 function handleSupervisorCall(session: Session): void {

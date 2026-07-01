@@ -19,6 +19,9 @@ export const config = {
   webrtcSbcUrl: process.env.WEBRTC_SBC_URL ?? '',
   /** Name of the jambonz application provisioned for this monitor (see DEMO.md). */
   monitorAppName: process.env.MONITOR_APP_NAME ?? 'room-monitor',
+  /** Room that headerless inbound calls (DID callers) join; when unset, each
+   *  dialed number becomes its own room (room-<digits>). */
+  demoDefaultRoom: process.env.DEMO_DEFAULT_ROOM ?? '',
 } as const;
 
 /**

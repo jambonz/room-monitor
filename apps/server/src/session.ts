@@ -6,6 +6,8 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 
 const POLL_INTERVAL_MS = 2000;
+/** PCM rate we request for the conference listen fork (and advertise in its metadata). */
+export const FORK_SAMPLE_RATE = 16000;
 
 export interface SessionConfig {
   send: (msg: ServerMessage) => void;
@@ -37,10 +39,21 @@ export class SupervisorSession {
     this.send = cfg.send;
   }
 
-  /** Attach credentials and start polling rooms. Throws if creds are invalid. */
+  /** application_sid of the provisioned monitor app (resolved at connect). */
+  monitorAppSid = '';
+
+  /** Attach credentials and start polling rooms. Throws if creds are invalid
+   *  or the account has no provisioned monitor application. */
   async connect(creds: JambonzCreds): Promise<void> {
     this.rest = new JambonzRest(creds);
     await this.rest.verify();
+    const appSid = await this.rest.findApplicationByName(config.monitorAppName);
+    if (!appSid) {
+      this.rest = null;
+      throw new Error(
+        `no application named "${config.monitorAppName}" on this account — see DEMO.md provisioning`);
+    }
+    this.monitorAppSid = appSid;
     await this.poll();
     this.pollTimer = setInterval(() => void this.poll(), POLL_INTERVAL_MS);
   }
@@ -48,7 +61,13 @@ export class SupervisorSession {
   private async poll(): Promise<void> {
     if (!this.rest) return;
     try {
-      this.rooms = await this.rest.listRooms();
+      const rooms = await this.rest.listRooms();
+      // Monitoring legs (ours or another supervisor's) are not room participants:
+      // they must not show up in the chips or the agent/other counts.
+      for (const room of rooms) {
+        room.participants = room.participants.filter((p) => p.memberTag !== 'supervisor');
+      }
+      this.rooms = rooms;
       this.send({ type: 'rooms', rooms: this.rooms });
       // Coach is gated on agent presence; if the supervisor is coaching and the
       // agents have left, fall back to listen.
@@ -143,14 +162,22 @@ export class SupervisorSession {
     this.transcriptOn = on;
 
     if (on) {
-      await this.rest.startConferenceListen(roomId, {
+      const botMemberId = await this.rest.startConferenceListen(roomId, {
         url: config.forkSink.url,
-        sampleRate: 16000,
+        sampleRate: FORK_SAMPLE_RATE,
         ...(config.forkSink.username
           ? { wsAuth: { username: config.forkSink.username, password: config.forkSink.password ?? '' } }
           : {}),
-        metadata: { sessionId: this.id, roomName: roomId },
+        // MediaJam delivers this verbatim as the fork's first text frame, so the
+        // sink can identify and configure itself from it alone.
+        metadata: { sessionId: this.id, roomName: roomId, sampleRate: FORK_SAMPLE_RATE },
       });
+      if (botMemberId === null) {
+        // fork failed to start — revert so the UI toggle doesn't lie
+        this.transcriptOn = false;
+        this.send({ type: 'transcriptState', roomId, on: false });
+        return;
+      }
     } else {
       await this.rest.stopConferenceListen(roomId);
       this.stopTranscriber();
@@ -185,7 +212,11 @@ export class SupervisorSession {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = null;
     if (this.transcriptOn && this.selectedRoomId && this.rest) {
-      await this.rest.stopConferenceListen(this.selectedRoomId).catch(() => {});
+      // best-effort: if this fails the conf-bot keeps streaming until the room
+      // ends (MediaJam reaps it then) — surface it rather than hide it
+      await this.rest.stopConferenceListen(this.selectedRoomId).catch((err) => {
+        logger.warn({ err, roomId: this.selectedRoomId }, 'dispose: failed to stop conference listen fork');
+      });
     }
     this.stopTranscriber();
     this.rest = null;
@@ -204,6 +235,15 @@ export class SessionManager {
 
   get(id: string): SupervisorSession | undefined {
     return this.sessions.get(id);
+  }
+
+  /** Fallback lookup for a fork whose metadata lacks a sessionId: the session
+   *  currently transcribing the named room. */
+  findTranscribing(roomName: string): SupervisorSession | undefined {
+    for (const s of this.sessions.values()) {
+      if (s.transcriptOn && s.selectedRoomId === roomName) return s;
+    }
+    return undefined;
   }
 
   async remove(id: string): Promise<void> {

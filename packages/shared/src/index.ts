@@ -80,6 +80,9 @@ export interface ConnectedMessage {
   sessionId: string;
   /** wss:// URL of the jambonz SBC for the WebRTC SDK to register against. */
   sbcUrl: string;
+  /** application_sid of the monitor app — the browser dials `app-<sid>` with an
+   *  X-Application-Sid header so no dial-plan routing is needed. */
+  appSid: string;
 }
 
 /** Sent when `connect` fails (bad credentials / unreachable system). */

@@ -4,8 +4,6 @@ import type { JambonzClient, JambonzCall } from '@jambonz/client-sdk-web';
 import type { ClientMessage, Room, ServerMessage, SupervisorMode, TranscriptLine } from '@room-monitor/shared';
 
 const DATA_WS_URL = import.meta.env.VITE_DATA_WS_URL ?? `ws://${location.hostname}:3001/ws`;
-/** Routing target the WebRTC client dials to reach the monitor application. */
-const MONITOR_TARGET = import.meta.env.VITE_MONITOR_TARGET ?? 'monitor';
 
 export interface LoginForm {
   baseUrl: string;
@@ -23,6 +21,9 @@ export interface RoomMonitorState {
   rooms: Room[];
   selectedRoomId: string | null;
   mode: SupervisorMode;
+  /** True while the supervisor's media leg is being set up — mode buttons are
+   *  disabled until the backend confirms via supervisorState (or the call dies). */
+  modePending: boolean;
   transcriptOn: boolean;
   transcriptsByRoom: Record<string, TranscriptLine[]>;
   identity: { username: string; accountSid: string };
@@ -44,6 +45,7 @@ export function useRoomMonitor(): RoomMonitor {
     rooms: [],
     selectedRoomId: null,
     mode: 'idle',
+    modePending: false,
     transcriptOn: false,
     transcriptsByRoom: {},
     identity: { username: '', accountSid: '' },
@@ -53,6 +55,7 @@ export function useRoomMonitor(): RoomMonitor {
   const sip = useRef<JambonzClient | null>(null);
   const call = useRef<JambonzCall | null>(null);
   const sessionId = useRef<string>('');
+  const appSid = useRef<string>('');
   const creds = useRef<{ username: string; password: string }>({ username: '', password: '' });
   const selectedRef = useRef<string | null>(null);
 
@@ -78,6 +81,7 @@ export function useRoomMonitor(): RoomMonitor {
       switch (msg.type) {
         case 'connected': {
           sessionId.current = msg.sessionId;
+          appSid.current = msg.appSid;
           try {
             const client = createJambonzClient({
               server: msg.sbcUrl,
@@ -107,7 +111,9 @@ export function useRoomMonitor(): RoomMonitor {
           });
           break;
         case 'supervisorState':
-          setState((s) => (s.selectedRoomId === msg.roomId ? { ...s, mode: msg.mode } : s));
+          setState((s) =>
+            s.selectedRoomId === msg.roomId ? { ...s, mode: msg.mode, modePending: false } : s
+          );
           break;
         case 'transcriptState':
           setState((s) =>
@@ -157,9 +163,10 @@ export function useRoomMonitor(): RoomMonitor {
     ws.current?.close();
     ws.current = null;
     sessionId.current = '';
+    appSid.current = '';
     creds.current = { username: '', password: '' };
     selectedRef.current = null;
-    setState((s) => ({ ...s, phase: 'login', mode: 'idle', transcriptOn: false, selectedRoomId: null, rooms: [], transcriptsByRoom: {} }));
+    setState((s) => ({ ...s, phase: 'login', mode: 'idle', modePending: false, transcriptOn: false, selectedRoomId: null, rooms: [], transcriptsByRoom: {} }));
   }, [hangupCall]);
 
   const selectRoom = useCallback(
@@ -168,7 +175,7 @@ export function useRoomMonitor(): RoomMonitor {
       hangupCall();
       selectedRef.current = roomId;
       sendWs({ type: 'select', roomId });
-      setState((s) => ({ ...s, selectedRoomId: roomId, mode: 'idle', transcriptOn: false }));
+      setState((s) => ({ ...s, selectedRoomId: roomId, mode: 'idle', modePending: false, transcriptOn: false }));
     },
     [sendWs, hangupCall]
   );
@@ -178,24 +185,34 @@ export function useRoomMonitor(): RoomMonitor {
       const roomId = selectedRef.current;
       if (!roomId) return;
       setState((s) => {
-        if (s.mode === mode) return s;
+        if (s.mode === mode || s.modePending) return s;
         if (s.mode === 'idle') {
-          // idle -> connected: place the WebRTC media leg into the conference
+          // idle -> connected: place the WebRTC media leg into the conference.
+          // Routed straight to the monitor application (no dial plan needed):
+          // app-<sid> target + X-Application-Sid header, per the jambonz SBC
+          // routing convention. Buttons stay disabled (modePending) until the
+          // backend confirms the leg via supervisorState.
           const client = sip.current;
-          if (client) {
-            const c = client.call(MONITOR_TARGET, {
-              headers: { 'X-Room': roomId, 'X-Session-Id': sessionId.current, 'X-Mode': mode },
-            });
-            call.current = c;
-            c.on('ended', () => {
-              call.current = null;
-              setState((cur) => ({ ...cur, mode: 'idle' }));
-            });
-          }
-        } else {
-          // already connected: switch mode on the live leg
-          sendWs({ type: 'setMode', roomId, mode });
+          if (!client || !appSid.current) return s;
+          const c = client.call(`app-${appSid.current}`, {
+            headers: {
+              'X-Application-Sid': appSid.current,
+              'X-Room': roomId,
+              'X-Session-Id': sessionId.current,
+              'X-Mode': mode,
+            },
+          });
+          call.current = c;
+          const dead = () => {
+            call.current = null;
+            setState((cur) => ({ ...cur, mode: 'idle', modePending: false }));
+          };
+          c.on('ended', dead);
+          c.on('failed', dead);
+          return { ...s, mode, modePending: true };
         }
+        // already connected: switch mode on the live leg
+        sendWs({ type: 'setMode', roomId, mode });
         return { ...s, mode };
       });
     },
@@ -206,7 +223,7 @@ export function useRoomMonitor(): RoomMonitor {
     const roomId = selectedRef.current;
     hangupCall();
     if (roomId) sendWs({ type: 'setMode', roomId, mode: 'idle' });
-    setState((s) => ({ ...s, mode: 'idle' }));
+    setState((s) => ({ ...s, mode: 'idle', modePending: false }));
   }, [sendWs, hangupCall]);
 
   const toggleTranscript = useCallback(() => {

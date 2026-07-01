@@ -56,6 +56,17 @@ export class JambonzRest {
     if (!res.ok) throw new Error(`jambonz auth failed (${res.status})`);
   }
 
+  /** Resolve a jambonz application on this account by name; returns its sid. */
+  async findApplicationByName(name: string): Promise<string | null> {
+    const res = await this.req('GET', '/Applications');
+    if (!res.ok) {
+      logger.warn({ status: res.status }, 'findApplicationByName: list failed');
+      return null;
+    }
+    const apps = (await res.json()) as Array<{ application_sid: string; name: string }>;
+    return apps.find((a) => a.name === name)?.application_sid ?? null;
+  }
+
   /** Live rooms with participants (enriched listing). */
   async listRooms(): Promise<Room[]> {
     const res = await this.req('GET', '/Conferences?expand=participants');

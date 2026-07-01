@@ -27,6 +27,7 @@ export function App() {
           <RoomDetail
             room={room}
             mode={rm.mode}
+            modePending={rm.modePending}
             transcriptOn={rm.transcriptOn}
             lines={lines}
             onSetMode={rm.setMode}

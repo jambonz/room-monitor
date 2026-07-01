@@ -49,10 +49,18 @@ async function onMessage(
       case 'connect':
         try {
           await session.connect({ baseUrl: msg.baseUrl, accountSid: msg.accountSid, apiKey: msg.apiKey });
-          send({ type: 'connected', sessionId: session.id, sbcUrl: config.webrtcSbcUrl });
+          send({
+            type: 'connected',
+            sessionId: session.id,
+            sbcUrl: config.webrtcSbcUrl,
+            appSid: session.monitorAppSid,
+          });
         } catch (err) {
           logger.info({ err }, 'data-ws: connect failed');
-          send({ type: 'connectError', message: 'Could not connect to the jambonz system. Check your credentials.' });
+          const detail = err instanceof Error && err.message.includes('no application named')
+            ? err.message
+            : 'Could not connect to the jambonz system. Check your credentials.';
+          send({ type: 'connectError', message: detail });
         }
         break;
       case 'select':

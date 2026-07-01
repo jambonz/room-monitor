@@ -1,4 +1,4 @@
-import { Headphones, Mic, LogIn, LogOut, Users } from 'react-feather';
+import { Headphones, Mic, LogIn, LogOut, Users, Lock } from 'react-feather';
 import type { Room, SupervisorMode, TranscriptLine } from '@room-monitor/shared';
 import { agentCount, otherCount, coachAvailable } from '@room-monitor/shared';
 import { fmtDur, speakerColor } from '../format.js';
@@ -21,14 +21,31 @@ const SUP_ROLE: Record<SupervisorMode, { role: string; color: string; bg: string
   enter: { role: 'in room', color: 'var(--jambonz)', bg: 'var(--pink)', border: '#f6d3df', dot: 'var(--jambonz)' },
 };
 
-function ModeButton({ active, color, icon, label, onClick }: { active: boolean; color: string; icon: React.ReactNode; label: string; onClick: () => void }) {
+function ModeButton({ active, disabled, color, icon, label, onClick }: { active: boolean; disabled: boolean; color: string; icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 9, cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none', fontFamily: 'var(--font-medium)', fontSize: '0.9rem', border: `1.5px solid ${active ? color : 'var(--grey)'}`, color: active ? 'var(--white)' : '#5a5758', background: active ? color : 'var(--white)' }}
+      disabled={disabled}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 9, cursor: disabled ? 'default' : 'pointer', opacity: disabled && !active ? 0.55 : 1, whiteSpace: 'nowrap', flex: 'none', fontFamily: 'var(--font-medium)', fontSize: '0.9rem', border: `1.5px solid ${active ? color : 'var(--grey)'}`, color: active ? 'var(--white)' : '#5a5758', background: active ? color : 'var(--white)' }}
     >
       {icon} {label}
     </button>
+  );
+}
+
+/** Tinted footer shown while coaching / in the room — the design's "speak" bar
+ *  minus the prototype text box (the supervisor's mic is the real input). */
+function ModeBanner({ mode }: { mode: 'coach' | 'enter' }) {
+  const coach = mode === 'coach';
+  return (
+    <div style={{ flex: 'none', padding: '12px 24px 16px', borderTop: '1px solid var(--grey-light)', background: coach ? '#faf6fd' : '#fff6f9' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', fontFamily: 'var(--font-medium)', color: coach ? 'var(--purple)' : 'var(--jambonz)' }}>
+        {coach ? <Lock size={14} /> : <Users size={14} />}
+        {coach
+          ? 'Coaching the agents privately — other participants will not hear this'
+          : 'You are in the room — everyone can hear you'}
+      </div>
+    </div>
   );
 }
 
@@ -45,6 +62,7 @@ function Wave({ color }: { color: string }) {
 export function RoomDetail({
   room,
   mode,
+  modePending,
   transcriptOn,
   lines,
   onSetMode,
@@ -53,6 +71,7 @@ export function RoomDetail({
 }: {
   room: Room | null;
   mode: SupervisorMode;
+  modePending: boolean;
   transcriptOn: boolean;
   lines: TranscriptLine[];
   onSetMode: (m: Exclude<SupervisorMode, 'idle'>) => void;
@@ -122,9 +141,9 @@ export function RoomDetail({
       {/* Control bar */}
       <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--grey-light)', display: 'flex', alignItems: 'center', gap: 16, background: '#fcfbfb', minHeight: 62 }}>
         <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
-          <ModeButton active={mode === 'monitor'} color="var(--blue)" icon={<Headphones size={17} />} label="Listen" onClick={() => onSetMode('monitor')} />
-          {hasAgents && <ModeButton active={mode === 'coach'} color="var(--purple)" icon={<Mic size={17} />} label="Coach" onClick={() => onSetMode('coach')} />}
-          <ModeButton active={mode === 'enter'} color="var(--jambonz)" icon={<LogIn size={17} />} label="Enter Room" onClick={() => onSetMode('enter')} />
+          <ModeButton active={mode === 'monitor'} disabled={modePending} color="var(--blue)" icon={<Headphones size={17} />} label="Listen" onClick={() => onSetMode('monitor')} />
+          {hasAgents && <ModeButton active={mode === 'coach'} disabled={modePending} color="var(--purple)" icon={<Mic size={17} />} label="Coach" onClick={() => onSetMode('coach')} />}
+          <ModeButton active={mode === 'enter'} disabled={modePending} color="var(--jambonz)" icon={<LogIn size={17} />} label="Enter Room" onClick={() => onSetMode('enter')} />
         </div>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
@@ -162,6 +181,8 @@ export function RoomDetail({
       </div>
 
       {transcriptOn ? <TranscriptList lines={lines} /> : <TranscriptOff onTurnOn={onToggleTranscript} />}
+
+      {(mode === 'coach' || mode === 'enter') && !modePending && <ModeBanner mode={mode} />}
     </div>
   );
 }

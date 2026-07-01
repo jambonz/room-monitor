@@ -2,9 +2,10 @@ import http from 'node:http';
 import { createEndpoint } from '@jambonz/sdk/websocket';
 import type { Session, AudioStream } from '@jambonz/sdk/websocket';
 import type { SupervisorMode } from '@room-monitor/shared';
-import { sessionManager } from './session.js';
+import { sessionManager, FORK_SAMPLE_RATE } from './session.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { healthHandler } from './health.js';
 
 /**
  * The jambonz-facing WebSocket app, on its own HTTP server:
@@ -18,14 +19,18 @@ import { logger } from './logger.js';
  * conflicts and to match deployment (jambonz/MediaJam reach this internally).
  */
 export function startJambonzApp(): http.Server {
-  const server = http.createServer();
+  const server = http.createServer(healthHandler);
   const makeService = createEndpoint({ server, logger });
 
   makeService({ path: '/supervisor' }).on('session:new', handleSupervisorCall);
   makeService.audio({ path: '/fork' }).on('connection', handleForkAudio);
 
+  server.on('error', (err) => {
+    logger.error({ err, port: config.jambonzWsAppPort }, 'jambonz ws app failed to start (port in use?)');
+    process.exit(1);
+  });
   server.listen(config.jambonzWsAppPort, () =>
-    logger.info({ port: config.jambonzWsAppPort }, 'jambonz ws app listening (/supervisor, /fork)')
+    logger.info({ port: config.jambonzWsAppPort }, 'jambonz ws app listening (/supervisor, /fork, /health)')
   );
   return server;
 }
@@ -85,15 +90,24 @@ function handleSupervisorCall(session: Session): void {
 }
 
 function handleForkAudio(stream: AudioStream): void {
-  const meta = stream.metadata as { sessionId?: string; roomName?: string };
-  const sup = meta.sessionId ? sessionManager.get(meta.sessionId) : undefined;
+  // MediaJam sends OUR listen-request metadata verbatim as the fork's first
+  // text frame, so don't assume the standard jambonz listen fields (callSid,
+  // sampleRate, …) are present. Log the full frame so integration can confirm
+  // the real shape, and configure from our own self-describing metadata.
+  const meta = stream.metadata as { sessionId?: string; roomName?: string; sampleRate?: number };
+  logger.info({ metadata: stream.metadata }, 'fork audio connected — initial metadata frame');
+
+  const sup =
+    (meta.sessionId ? sessionManager.get(meta.sessionId) : undefined) ??
+    (meta.roomName ? sessionManager.findTranscribing(meta.roomName) : undefined);
   if (!sup || !meta.roomName) {
-    logger.warn({ meta }, 'fork audio without a matching session/room');
+    logger.warn({ meta }, 'fork audio without a matching session/room — disconnecting');
     stream.disconnect();
     return;
   }
-  logger.info({ sessionId: meta.sessionId, roomName: meta.roomName, sampleRate: stream.sampleRate }, 'fork audio connected');
-  const transcriber = sup.attachTranscriptionStream(meta.roomName, stream.sampleRate);
+
+  const sampleRate = meta.sampleRate ?? stream.sampleRate ?? FORK_SAMPLE_RATE;
+  const transcriber = sup.attachTranscriptionStream(meta.roomName, sampleRate);
   stream.on('audio', (pcm: Buffer) => transcriber.write(pcm));
   stream.on('close', () => transcriber.close());
 }

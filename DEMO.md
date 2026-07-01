@@ -1,5 +1,15 @@
 # Room Monitor — Demo Setup & Runbook
 
+> **Live on eu.jambonz.io** (as of 2026-07-01):
+> - Console: `https://eu.jambonz.io/monitor/`
+> - Demo phone: `https://eu.jambonz.io/monitor/#phone`
+> - Inbound DID callers: route a phone number to the `room-monitor` application —
+>   headerless calls join as plain callers (room = `DEMO_DEFAULT_ROOM`, else
+>   `room-<dialed digits>`, so each DID is its own room).
+> - Hosted via nginx: `/monitor/` serves the web build, `/rm-ws` proxies the
+>   data-WS (build the frontend with `VITE_BASE=/monitor/` and
+>   `VITE_DATA_WS_URL=wss://<host>/rm-ws`).
+
 Everything needed to run a live demo: platform prerequisites, jambonz account
 provisioning, app configuration, traffic, and the demo script itself.
 

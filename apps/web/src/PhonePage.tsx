@@ -15,6 +15,7 @@ import type { JambonzClient, JambonzCall } from '@jambonz/client-sdk-web';
 const LS = {
   sbcUrl: 'rm_sbcUrl',
   appSid: 'rm_appSid',
+  sipRealm: 'rm_sipRealm',
   username: 'rmphone_username',
   room: 'rmphone_room',
 };
@@ -50,6 +51,7 @@ const labelStyle: React.CSSProperties = {
 
 export function PhonePage() {
   const [sbcUrl, setSbcUrl] = useState(ls(LS.sbcUrl));
+  const [sipRealm, setSipRealm] = useState(ls(LS.sipRealm));
   const [appSid, setAppSid] = useState(ls(LS.appSid));
   const [username, setUsername] = useState(ls(LS.username));
   const [password, setPassword] = useState('');
@@ -87,6 +89,7 @@ export function PhonePage() {
     setError('');
     try {
       localStorage.setItem(LS.sbcUrl, sbcUrl);
+      localStorage.setItem(LS.sipRealm, sipRealm);
       localStorage.setItem(LS.appSid, appSid);
       localStorage.setItem(LS.username, username);
       localStorage.setItem(LS.room, room);
@@ -95,7 +98,12 @@ export function PhonePage() {
     }
     setPhoneState('joining');
     try {
-      const c = createJambonzClient({ server: sbcUrl, username, password });
+      const c = createJambonzClient({
+        server: sbcUrl,
+        username,
+        password,
+        ...(sipRealm.trim() ? { realm: sipRealm.trim() } : {}),
+      });
       await c.connect();
       client.current = c;
       const jc = c.call(`app-${appSid}`, {
@@ -148,6 +156,10 @@ export function PhonePage() {
             <label style={{ display: 'block', marginBottom: 12 }}>
               <span style={labelStyle}>SBC WebSocket URL</span>
               <input value={sbcUrl} onChange={(e) => setSbcUrl(e.target.value)} placeholder="wss://sbc.example.com:8443" style={inputStyle} disabled={joining} />
+            </label>
+            <label style={{ display: 'block', marginBottom: 12 }}>
+              <span style={labelStyle}>SIP realm</span>
+              <input value={sipRealm} onChange={(e) => setSipRealm(e.target.value)} placeholder="sip.example.com" style={inputStyle} disabled={joining} />
             </label>
             <label style={{ display: 'block', marginBottom: 12 }}>
               <span style={labelStyle}>Application SID</span>

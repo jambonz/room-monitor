@@ -86,6 +86,7 @@ export function useRoomMonitor(): RoomMonitor {
           try {
             localStorage.setItem('rm_appSid', msg.appSid);
             localStorage.setItem('rm_sbcUrl', msg.sbcUrl);
+            localStorage.setItem('rm_sipRealm', msg.sipRealm);
           } catch {
             /* ignore */
           }
@@ -94,6 +95,8 @@ export function useRoomMonitor(): RoomMonitor {
               server: msg.sbcUrl,
               username: creds.current.username,
               password: creds.current.password,
+              // register against the account's SIP realm, not the wss hostname
+              ...(msg.sipRealm ? { realm: msg.sipRealm } : {}),
             });
             await client.connect();
             sip.current = client;

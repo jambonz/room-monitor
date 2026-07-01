@@ -83,6 +83,9 @@ export interface ConnectedMessage {
   /** application_sid of the monitor app — the browser dials `app-<sid>` with an
    *  X-Application-Sid header so no dial-plan routing is needed. */
   appSid: string;
+  /** The account's SIP realm — the WebRTC SDK must register against this domain
+   *  (it defaults to the wss hostname, which is usually wrong). */
+  sipRealm: string;
 }
 
 /** Sent when `connect` fails (bad credentials / unreachable system). */

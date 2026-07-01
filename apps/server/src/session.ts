@@ -41,6 +41,8 @@ export class SupervisorSession {
 
   /** application_sid of the provisioned monitor app (resolved at connect). */
   monitorAppSid = '';
+  /** the account's SIP realm (resolved at connect, for WebRTC registration). */
+  sipRealm = '';
 
   /** Attach credentials and start polling rooms. Throws if creds are invalid
    *  or the account has no provisioned monitor application. */
@@ -54,6 +56,7 @@ export class SupervisorSession {
         `no application named "${config.monitorAppName}" on this account — see DEMO.md provisioning`);
     }
     this.monitorAppSid = appSid;
+    this.sipRealm = await this.rest.getAccountSipRealm();
     await this.poll();
     this.pollTimer = setInterval(() => void this.poll(), POLL_INTERVAL_MS);
   }

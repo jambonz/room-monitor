@@ -54,6 +54,7 @@ async function onMessage(
             sessionId: session.id,
             sbcUrl: config.webrtcSbcUrl,
             appSid: session.monitorAppSid,
+            sipRealm: session.sipRealm,
           });
         } catch (err) {
           logger.info({ err }, 'data-ws: connect failed');

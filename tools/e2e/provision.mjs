@@ -43,7 +43,8 @@ let app = apps.json.find((a) => a.name === APP_NAME);
 if (app) {
   console.log(`application "${APP_NAME}" exists: ${app.application_sid}`);
 } else {
-  const created = await api('POST', `/Accounts/${ACCOUNT_SID}/Applications`, {
+  // applications/clients are created at the top level with account_sid in the body
+  const created = await api('POST', '/Applications', {
     name: APP_NAME,
     account_sid: ACCOUNT_SID,
     call_hook: { url: APP_WS_URL, method: 'POST' },
@@ -55,7 +56,7 @@ if (app) {
 }
 
 // --- clients ----------------------------------------------------------------
-const clients = await api('GET', `/Accounts/${ACCOUNT_SID}/Clients`);
+const clients = await api('GET', '/Clients');
 if (clients.status !== 200) { console.error('list clients failed', clients.status, clients.text); process.exit(1); }
 for (const username of ['supervisor', 'agent1', 'caller1']) {
   const existing = (clients.json ?? []).find((c) => c.username === username);
@@ -63,7 +64,7 @@ for (const username of ['supervisor', 'agent1', 'caller1']) {
     console.log(`client "${username}" exists`);
     continue;
   }
-  const created = await api('POST', `/Accounts/${ACCOUNT_SID}/Clients`, {
+  const created = await api('POST', '/Clients', {
     account_sid: ACCOUNT_SID,
     username,
     password: CLIENT_PASSWORD,

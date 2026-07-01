@@ -31,6 +31,7 @@ const BASE_URL = env('BASE_URL', '').replace(/\/+$/, '');
 const ACCOUNT_SID = env('ACCOUNT_SID', '');
 const API_KEY = env('API_KEY', '');
 const SBC_URL = env('SBC_URL', 'wss://eu.jambonz.io:8443');
+const SIP_REALM = env('SIP_REALM', 'sip.eu.jambonz.io');
 const CLIENT_PASSWORD = env('CLIENT_PASSWORD', '');
 const ROOM = env('ROOM', 'e2e-room-1');
 const HEADED = env('HEADED', '') === '1';
@@ -82,6 +83,7 @@ const visible = async (page, text, timeoutMs = 20000) => {
 async function joinPhone(page, { username, role }) {
   await page.goto(`${WEB_URL}/#phone`);
   await page.getByLabel('SBC WebSocket URL').fill(SBC_URL);
+  await page.getByLabel('SIP realm').fill(SIP_REALM);
   const appSid = await discoverAppSid();
   await page.getByLabel('Application SID').fill(appSid);
   await page.getByLabel('Username').fill(username);

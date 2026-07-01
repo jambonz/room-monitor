@@ -56,6 +56,14 @@ export class JambonzRest {
     if (!res.ok) throw new Error(`jambonz auth failed (${res.status})`);
   }
 
+  /** The account's SIP realm (for WebRTC registration). */
+  async getAccountSipRealm(): Promise<string> {
+    const res = await this.req('GET', '');
+    if (!res.ok) return '';
+    const account = (await res.json()) as { sip_realm?: string };
+    return account.sip_realm ?? '';
+  }
+
   /** Resolve a jambonz application on this account by name; returns its sid. */
   async findApplicationByName(name: string): Promise<string | null> {
     const res = await this.req('GET', '/Applications');

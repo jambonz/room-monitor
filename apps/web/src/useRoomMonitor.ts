@@ -82,6 +82,13 @@ export function useRoomMonitor(): RoomMonitor {
         case 'connected': {
           sessionId.current = msg.sessionId;
           appSid.current = msg.appSid;
+          // non-secret hints for the demo phone page on this browser
+          try {
+            localStorage.setItem('rm_appSid', msg.appSid);
+            localStorage.setItem('rm_sbcUrl', msg.sbcUrl);
+          } catch {
+            /* ignore */
+          }
           try {
             const client = createJambonzClient({
               server: msg.sbcUrl,

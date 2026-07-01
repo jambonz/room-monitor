@@ -31,9 +31,15 @@ pipelines:
 ```bash
 npm install
 npm run dev:server   # backend
-npm run dev:web      # frontend (http://localhost:3000)
+npm run dev:web      # frontend (http://localhost:3000; demo phone at /#phone)
 ```
 
-Copy `apps/server/.env.example` to `apps/server/.env` and fill in the fork sink
-URL and Deepgram key. jambonz connection secrets are supplied per-session via the
-login screen and held in memory only.
+Copy `apps/server/.env.example` to `apps/server/.env` and fill in the SBC URL,
+fork sink URL, and Deepgram key (the backend fails fast if they're missing).
+jambonz connection secrets are supplied per-session via the login screen and
+held in memory only.
+
+## Demo
+
+See [DEMO.md](DEMO.md) for platform prerequisites, jambonz account provisioning,
+demo traffic (the `/#phone` page + `tools/traffic/`), and the demo runbook.

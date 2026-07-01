@@ -2,11 +2,14 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './tokens.css';
 import { App } from './App.js';
+import { PhonePage } from './PhonePage.js';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');
+
+// /#phone → the demo phone (one tab per participant); anything else → console
+const isPhone = location.hash.replace('#', '') === 'phone';
+
 createRoot(root).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <React.StrictMode>{isPhone ? <PhonePage /> : <App />}</React.StrictMode>
 );

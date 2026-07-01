@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- room-monitor background-traffic participant (sipp UAC).
+
+     Places one call into the jambonz SBC that routes to the room-monitor
+     application (X-Application-Sid) and joins a room (X-Room) as X-Role.
+     Streams a looped WAV as its "speech" so Listen has audio and the
+     transcript has something to transcribe.
+
+     Handles a digest challenge (401/407) when -au/-ap are supplied; on
+     IP-whitelisted deployments the challenge legs simply don't fire.
+
+     Injected fields (see run.sh):
+       [field0] room name    [field1] role (agent|caller)
+     Key options: -key app_sid <sid>  -key wav <path-to-8k-mono-wav>
+-->
+<scenario name="room-monitor demo participant">
+
+  <send retrans="500">
+    <![CDATA[
+      INVITE sip:app-[field0]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: "traffic" <sip:[service]@[local_ip]>;tag=[pid]SIPpTag00[call_number]
+      To: <sip:app-[field0]@[remote_ip]>
+      Call-ID: [call_id]
+      CSeq: 1 INVITE
+      Contact: <sip:[service]@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      X-Application-Sid: [key_app_sid]
+      X-Room: [field0]
+      X-Role: [field1]
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=- 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [media_port] RTP/AVP 0 101
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:101 telephone-event/8000
+    ]]>
+  </send>
+
+  <recv response="100" optional="true"></recv>
+  <recv response="180" optional="true"></recv>
+  <recv response="183" optional="true"></recv>
+
+  <!-- digest challenge (fires only when the SBC challenges) -->
+  <recv response="401" auth="true" optional="true" next="challenged"></recv>
+  <recv response="407" auth="true" optional="true" next="challenged"></recv>
+
+  <recv response="200" rtd="true" next="answered"></recv>
+
+  <label id="challenged"/>
+  <send>
+    <![CDATA[
+      ACK sip:app-[field0]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: "traffic" <sip:[service]@[local_ip]>;tag=[pid]SIPpTag00[call_number]
+      To: <sip:app-[field0]@[remote_ip]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: 1 ACK
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+
+  <send retrans="500">
+    <![CDATA[
+      INVITE sip:app-[field0]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: "traffic" <sip:[service]@[local_ip]>;tag=[pid]SIPpTag00[call_number]
+      To: <sip:app-[field0]@[remote_ip]>
+      Call-ID: [call_id]
+      CSeq: 2 INVITE
+      Contact: <sip:[service]@[local_ip]:[local_port]>
+      Max-Forwards: 70
+      [authentication]
+      X-Application-Sid: [key_app_sid]
+      X-Room: [field0]
+      X-Role: [field1]
+      Content-Type: application/sdp
+      Content-Length: [len]
+
+      v=0
+      o=- 53655765 2353687637 IN IP[local_ip_type] [local_ip]
+      s=-
+      c=IN IP[media_ip_type] [media_ip]
+      t=0 0
+      m=audio [media_port] RTP/AVP 0 101
+      a=rtpmap:0 PCMU/8000
+      a=rtpmap:101 telephone-event/8000
+    ]]>
+  </send>
+
+  <recv response="100" optional="true"></recv>
+  <recv response="180" optional="true"></recv>
+  <recv response="183" optional="true"></recv>
+  <recv response="200" rtd="true"></recv>
+
+  <label id="answered"/>
+  <send>
+    <![CDATA[
+      ACK sip:app-[field0]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: "traffic" <sip:[service]@[local_ip]>;tag=[pid]SIPpTag00[call_number]
+      To: <sip:app-[field0]@[remote_ip]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: [cseq] ACK
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+
+  <!-- stream the "speech" wav into the room, looping for the call duration -->
+  <nop>
+    <action>
+      <exec rtp_stream="[key_wav],-1"/>
+    </action>
+  </nop>
+
+  <!-- stay in the room (default 5 minutes; override with -d) -->
+  <pause distribution="fixed" value="300000"/>
+
+  <send retrans="500">
+    <![CDATA[
+      BYE sip:app-[field0]@[remote_ip]:[remote_port] SIP/2.0
+      Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+      From: "traffic" <sip:[service]@[local_ip]>;tag=[pid]SIPpTag00[call_number]
+      To: <sip:app-[field0]@[remote_ip]>[peer_tag_param]
+      Call-ID: [call_id]
+      CSeq: [cseq] BYE
+      Max-Forwards: 70
+      Content-Length: 0
+    ]]>
+  </send>
+
+  <recv response="200" crlf="true"></recv>
+
+</scenario>

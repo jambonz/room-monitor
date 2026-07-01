@@ -5,7 +5,7 @@ import type { SupervisorMode } from '@room-monitor/shared';
 import { sessionManager, FORK_SAMPLE_RATE } from './session.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { healthHandler } from './health.js';
+import { addHealthRoute } from './health.js';
 
 /**
  * The jambonz-facing WebSocket app, on its own HTTP server:
@@ -19,11 +19,12 @@ import { healthHandler } from './health.js';
  * conflicts and to match deployment (jambonz/MediaJam reach this internally).
  */
 export function startJambonzApp(): http.Server {
-  const server = http.createServer(healthHandler);
+  const server = http.createServer();
   const makeService = createEndpoint({ server, logger });
 
   makeService({ path: '/supervisor' }).on('session:new', handleCall);
   makeService.audio({ path: '/fork' }).on('connection', handleForkAudio);
+  addHealthRoute(server);
 
   server.on('error', (err) => {
     logger.error({ err, port: config.jambonzWsAppPort }, 'jambonz ws app failed to start (port in use?)');
@@ -47,33 +48,39 @@ function header(session: Session, name: string): string | undefined {
 }
 
 /**
- * One application, three call flows:
+ * The monitor application, two header-driven flows:
  *   - X-Session-Id present  → the supervisor console's monitoring leg
  *   - X-Role present        → a phone-page / traffic-kit participant
- *   - neither               → a plain inbound caller (e.g. a DID routed to this
- *                             application): joins as a regular participant, room
- *                             from DEMO_DEFAULT_ROOM or derived from the DID.
+ * Plain inbound callers (DIDs) belong to the separate "room-monitor-caller"
+ * application (caller-app.ts), whose room name is a portal-editable env var.
  */
 function handleCall(session: Session): void {
   if (header(session, 'X-Session-Id')) return handleSupervisorCall(session);
-  return handleParticipant(session);
+  if (header(session, 'X-Role')) return handleDemoParticipant(session);
+  logger.warn(
+    { callSid: session.callSid, from: session.from },
+    'headerless call to the monitor app — route DIDs to the room-monitor-caller application instead'
+  );
+  session.hangup().send();
 }
 
 /**
- * Participant leg: joins the room as an agent (memberTag "agent" — which gates
- * the console's Coach button and receives coached audio) or as a plain caller.
- * First participant creates the room (startConferenceOnEnter).
+ * Phone-page / traffic-kit participant: joins the named room as an agent
+ * (memberTag "agent" — which gates the console's Coach button and receives
+ * coached audio) or as a plain caller. First participant creates the room.
  */
-function handleParticipant(session: Session): void {
+function handleDemoParticipant(session: Session): void {
+  const roomName = header(session, 'X-Room');
   const role = (header(session, 'X-Role') ?? '').toLowerCase();
+  if (!roomName) {
+    logger.warn({ callSid: session.callSid }, 'demo participant missing X-Room');
+    session.hangup().send();
+    return;
+  }
   const isAgent = role === 'agent';
-  // room precedence: explicit header (phone page / traffic kit) → configured
-  // default → the dialed number (each DID becomes its own room)
-  const dialed = (session.to ?? '').replace(/^sip:/, '').split('@')[0];
-  const roomName = header(session, 'X-Room') || config.demoDefaultRoom || `room-${dialed}` || 'lobby';
   session
     .answer()
-    .say({ text: `Joining ${roomName.replace(/-/g, ' ')} as ${isAgent ? 'an agent' : 'a caller'}.` })
+    .say({ text: `Joining ${roomName.replace(/[-_]/g, ' ')} as ${isAgent ? 'an agent' : 'a caller'}.` })
     .conference({
       name: roomName,
       startConferenceOnEnter: true,
@@ -81,7 +88,7 @@ function handleParticipant(session: Session): void {
       ...(isAgent ? { memberTag: 'agent' } : {}),
     })
     .send();
-  logger.info({ callSid: session.callSid, from: session.from, roomName, role: role || 'caller' }, 'participant joined conference');
+  logger.info({ callSid: session.callSid, roomName, role }, 'demo participant joined conference');
 }
 
 function handleSupervisorCall(session: Session): void {

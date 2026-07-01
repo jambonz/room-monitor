@@ -3,6 +3,7 @@ import { config, validateConfig } from './config.js';
 import { logger } from './logger.js';
 import { attachDataWs } from './data-ws.js';
 import { startJambonzApp } from './jambonz-app.js';
+import { startCallerApp } from './caller-app.js';
 import { healthHandler } from './health.js';
 
 /**
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
   browserServer.listen(config.port, () => logger.info({ port: config.port }, 'data-WS server listening (/ws, /health)'));
 
   startJambonzApp();
+  startCallerApp();
 }
 
 main().catch((err) => {

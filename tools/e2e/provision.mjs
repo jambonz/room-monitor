@@ -36,24 +36,33 @@ const api = async (method, path, body) => {
   return { status: res.status, json, text };
 };
 
-// --- application ------------------------------------------------------------
+// --- applications -----------------------------------------------------------
+const CALLER_APP_NAME = process.env.CALLER_APP_NAME ?? 'room-monitor-caller';
+const CALLER_APP_WS_URL = process.env.CALLER_APP_WS_URL ?? 'ws://127.0.0.1:4003/caller';
+
 const apps = await api('GET', `/Accounts/${ACCOUNT_SID}/Applications`);
 if (apps.status !== 200) { console.error('list applications failed', apps.status, apps.text); process.exit(1); }
-let app = apps.json.find((a) => a.name === APP_NAME);
-if (app) {
-  console.log(`application "${APP_NAME}" exists: ${app.application_sid}`);
-} else {
-  // applications/clients are created at the top level with account_sid in the body
+
+// applications/clients are created at the top level with account_sid in the body
+const ensureApp = async (name, wsUrl) => {
+  const existing = apps.json.find((a) => a.name === name);
+  if (existing) {
+    console.log(`application "${name}" exists: ${existing.application_sid}`);
+    return existing.application_sid;
+  }
   const created = await api('POST', '/Applications', {
-    name: APP_NAME,
+    name,
     account_sid: ACCOUNT_SID,
-    call_hook: { url: APP_WS_URL, method: 'POST' },
-    call_status_hook: { url: APP_WS_URL, method: 'POST' },
+    call_hook: { url: wsUrl, method: 'POST' },
+    call_status_hook: { url: wsUrl, method: 'POST' },
   });
-  if (created.status !== 201) { console.error('create application failed', created.status, created.text); process.exit(1); }
-  app = { application_sid: created.json.sid };
-  console.log(`application "${APP_NAME}" created: ${app.application_sid}`);
-}
+  if (created.status !== 201) { console.error(`create application ${name} failed`, created.status, created.text); process.exit(1); }
+  console.log(`application "${name}" created: ${created.json.sid}`);
+  return created.json.sid;
+};
+
+const app = { application_sid: await ensureApp(APP_NAME, APP_WS_URL) };
+const callerAppSid = await ensureApp(CALLER_APP_NAME, CALLER_APP_WS_URL);
 
 // --- clients ----------------------------------------------------------------
 const clients = await api('GET', '/Clients');
@@ -77,3 +86,4 @@ for (const username of ['supervisor', 'agent1', 'caller1']) {
 
 console.log('\nprovisioning complete');
 console.log(`APP_SID=${app.application_sid}`);
+console.log(`CALLER_APP_SID=${callerAppSid}  (route your DID to this application; its ROOM_NAME env var picks the room)`);

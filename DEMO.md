@@ -3,9 +3,10 @@
 > **Live on eu.jambonz.io** (as of 2026-07-01):
 > - Console: `https://eu.jambonz.io/monitor/`
 > - Demo phone: `https://eu.jambonz.io/monitor/#phone`
-> - Inbound DID callers: route a phone number to the `room-monitor` application —
->   headerless calls join as plain callers (room = `DEMO_DEFAULT_ROOM`, else
->   `room-<dialed digits>`, so each DID is its own room).
+> - Inbound DID callers: route a phone number to the **`room-monitor-caller`**
+>   application. Which room they join is that application's **`ROOM_NAME` env
+>   var** — editable on the portal's application screen (the app declares it via
+>   OPTIONS discovery), default `lobby`. No redeploy to change rooms.
 > - Hosted via nginx: `/monitor/` serves the web build, `/rm-ws` proxies the
 >   data-WS (build the frontend with `VITE_BASE=/monitor/` and
 >   `VITE_DATA_WS_URL=wss://<host>/rm-ws`).
@@ -35,12 +36,16 @@ curl -s -H "Authorization: Bearer $API_KEY" \
 
 ## 2. Provision the jambonz account (portal)
 
-1. **Application** — create an application named exactly **`room-monitor`**
-   (the backend resolves it by this name; override with `MONITOR_APP_NAME`):
-   - Calling webhook: `ws://<backend-host>:3002/supervisor` (WebSocket).
-   - Call status webhook: anything (e.g. the same URL); not used by the demo.
-   - Note its **application SID** — the demo phone page needs it (the console
-     discovers it automatically).
+1. **Applications** — create two (or run `tools/e2e/provision.mjs`):
+   - **`room-monitor`** (the backend resolves it by this name; override with
+     `MONITOR_APP_NAME`): calling webhook `ws://<backend-host>:3002/supervisor`
+     (WebSocket). Serves the console's monitoring leg and the phone page. Note
+     its **application SID** — the phone page needs it (the console discovers it
+     automatically).
+   - **`room-monitor-caller`**: calling webhook `ws://<backend-host>:4003/caller`.
+     Route your **DID** to this application. Its **`ROOM_NAME` env var** (shown
+     on the application screen via OPTIONS discovery) selects the conference
+     inbound callers join — change it from the portal any time, default `lobby`.
 2. **Clients (webrtc SIP users)** — create at least three, active, with
    passwords:
    - `supervisor` — used by the console login.

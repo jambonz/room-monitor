@@ -57,13 +57,20 @@ export class Transcriber {
     });
     this.ws = ws;
 
-    ws.on('open', () => logger.debug('Transcriber: deepgram connected'));
+    ws.on('open', () => logger.info({ sampleRate: this.opts.sampleRate }, 'Transcriber: deepgram connected'));
     ws.on('message', (data) => this.onMessage(data));
     ws.on('error', (err) => logger.warn({ err }, 'Transcriber: deepgram error'));
-    ws.on('close', () => {
-      if (!this.closed) logger.debug('Transcriber: deepgram closed unexpectedly');
+    ws.on('close', (code, reason) => {
+      if (!this.closed) {
+        logger.warn({ code, reason: reason?.toString() }, 'Transcriber: deepgram closed unexpectedly');
+      }
     });
   }
+
+  /** counters for pipeline observability (logged by the fork sink) */
+  bytesIn = 0;
+  resultsIn = 0;
+  fragmentsOut = 0;
 
   private onMessage(data: WebSocket.RawData): void {
     let msg: DeepgramResult;
@@ -72,7 +79,11 @@ export class Transcriber {
     } catch {
       return;
     }
-    if (msg.type && msg.type !== 'Results') return;
+    if (msg.type && msg.type !== 'Results') {
+      logger.info({ type: msg.type }, 'Transcriber: deepgram non-result message');
+      return;
+    }
+    this.resultsIn++;
     if (!msg.is_final) return;
     const alt = msg.channel?.alternatives?.[0];
     if (!alt || !alt.transcript) return;
@@ -87,6 +98,7 @@ export class Transcriber {
     let buf: string[] = [];
     const flush = () => {
       if (buf.length === 0) return;
+      this.fragmentsOut++;
       this.onFragment({ speaker: `Speaker ${curSpeaker + 1}`, text: buf.join(' ') });
       buf = [];
     };
@@ -103,6 +115,7 @@ export class Transcriber {
 
   /** Feed a chunk of L16 PCM from the fork. */
   write(pcm: Buffer): void {
+    this.bytesIn += pcm.length;
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(pcm);
     }

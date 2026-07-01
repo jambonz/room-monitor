@@ -148,5 +148,19 @@ function handleForkAudio(stream: AudioStream): void {
   const sampleRate = meta.sampleRate ?? stream.sampleRate ?? FORK_SAMPLE_RATE;
   const transcriber = sup.attachTranscriptionStream(meta.roomName, sampleRate);
   stream.on('audio', (pcm: Buffer) => transcriber.write(pcm));
-  stream.on('close', () => transcriber.close());
+  // pipeline observability: fork bytes in → deepgram results → fragments out
+  const summary = setInterval(() => {
+    logger.info(
+      { roomName: meta.roomName, bytesIn: transcriber.bytesIn, resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
+      'fork pipeline'
+    );
+  }, 5000);
+  stream.on('close', () => {
+    clearInterval(summary);
+    logger.info(
+      { roomName: meta.roomName, bytesIn: transcriber.bytesIn, resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
+      'fork closed'
+    );
+    transcriber.close();
+  });
 }

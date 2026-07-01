@@ -108,9 +108,10 @@ async function discoverAppSid() {
 }
 
 // --------------------------------------------------------------------------
+let con, agent, caller;
 try {
   step('1. supervisor console: login');
-  const con = await launch('supervisor.wav');
+  con = await launch('supervisor.wav');
   await con.goto(WEB_URL);
   await con.getByLabel('Base URL').fill(BASE_URL);
   await con.getByLabel('Account SID').fill(ACCOUNT_SID);
@@ -122,10 +123,10 @@ try {
   pass('console connected (rooms polling)');
 
   step('2. agent + caller phones join the room');
-  const agent = await launch('agent.wav');
+  agent = await launch('agent.wav');
   await joinPhone(agent, { username: 'agent1', role: 'agent' });
   pass('agent1 in room');
-  const caller = await launch('caller.wav');
+  caller = await launch('caller.wav');
   await joinPhone(caller, { username: 'caller1', role: 'caller' });
   pass('caller1 in room');
 
@@ -203,7 +204,11 @@ try {
   await visible(con, 'No active calls', 20000);
   pass('room reaped, rail empty');
 } catch (err) {
-  await fail(`unhandled: ${err.message}`);
+  await fail(`unhandled: ${err.message}`, con);
+  if (con) {
+    const txt = await con.locator('body').innerText().catch(() => '');
+    console.log('--- console page text ---\n' + txt.slice(0, 800));
+  }
 } finally {
   for (const b of browsers) await b.close().catch(() => {});
 }

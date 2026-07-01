@@ -71,6 +71,14 @@ export class Transcriber {
   bytesIn = 0;
   resultsIn = 0;
   fragmentsOut = 0;
+  /** peak |sample| seen since the last takePeak() — silence detector */
+  private peak = 0;
+
+  takePeak(): number {
+    const p = this.peak;
+    this.peak = 0;
+    return p;
+  }
 
   private onMessage(data: WebSocket.RawData): void {
     let msg: DeepgramResult;
@@ -116,6 +124,11 @@ export class Transcriber {
   /** Feed a chunk of L16 PCM from the fork. */
   write(pcm: Buffer): void {
     this.bytesIn += pcm.length;
+    // silence detector: track the peak sample amplitude
+    for (let i = 0; i + 1 < pcm.length; i += 2) {
+      const v = Math.abs(pcm.readInt16LE(i));
+      if (v > this.peak) this.peak = v;
+    }
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(pcm);
     }

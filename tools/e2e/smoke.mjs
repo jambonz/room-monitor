@@ -81,7 +81,7 @@ const visible = async (page, text, timeoutMs = 20000) => {
 };
 
 async function joinPhone(page, { username, role }) {
-  await page.goto(`${WEB_URL}/#phone`);
+  await page.goto(`${WEB_URL}/#phone-raw`);
   await page.getByLabel('SBC WebSocket URL').fill(SBC_URL);
   await page.getByLabel('SIP realm').fill(SIP_REALM);
   const appSid = await discoverAppSid();
@@ -112,7 +112,7 @@ let con, agent, caller;
 try {
   step('1. supervisor console: login');
   con = await launch('supervisor.wav');
-  await con.goto(WEB_URL);
+  await con.goto(`${WEB_URL}/#raw`);
   await con.getByLabel('Base URL').fill(BASE_URL);
   await con.getByLabel('Account SID').fill(ACCOUNT_SID);
   await con.getByLabel('API key').fill(API_KEY);

@@ -151,7 +151,7 @@ function handleForkAudio(stream: AudioStream): void {
   // pipeline observability: fork bytes in → deepgram results → fragments out
   const summary = setInterval(() => {
     logger.info(
-      { roomName: meta.roomName, bytesIn: transcriber.bytesIn, resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
+      { roomName: meta.roomName, bytesIn: transcriber.bytesIn, peak: transcriber.takePeak(), resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
       'fork pipeline'
     );
   }, 5000);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Phone, PhoneOff, Mic, MicOff, Headphones, User } from 'react-feather';
 import { createJambonzClient } from '@jambonz/client-sdk-web';
 import type { JambonzClient, JambonzCall } from '@jambonz/client-sdk-web';
+import { micConstraints } from './rawAudio.js';
 
 /**
  * Demo phone — a minimal WebRTC endpoint for generating real room traffic.
@@ -106,8 +107,10 @@ export function PhonePage() {
       });
       await c.connect();
       client.current = c;
+      const mc = micConstraints();
       const jc = c.call(`app-${appSid}`, {
         headers: { 'X-Application-Sid': appSid, 'X-Room': room, 'X-Role': role },
+        ...(mc ? { mediaConstraints: mc } : {}),
       });
       call.current = jc;
       jc.on('accepted', () => setPhoneState('in-room'));

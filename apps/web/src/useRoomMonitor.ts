@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createJambonzClient } from '@jambonz/client-sdk-web';
 import type { JambonzClient, JambonzCall } from '@jambonz/client-sdk-web';
 import type { ClientMessage, Room, ServerMessage, SupervisorMode, TranscriptLine } from '@room-monitor/shared';
+import { micConstraints } from './rawAudio.js';
 
 const DATA_WS_URL = import.meta.env.VITE_DATA_WS_URL ?? `ws://${location.hostname}:3001/ws`;
 
@@ -217,6 +218,7 @@ export function useRoomMonitor(): RoomMonitor {
         // backend confirms the leg via supervisorState.
         const client = sip.current;
         if (!client || !appSid.current) return;
+        const mc = micConstraints();
         const c = client.call(`app-${appSid.current}`, {
           headers: {
             'X-Application-Sid': appSid.current,
@@ -224,6 +226,7 @@ export function useRoomMonitor(): RoomMonitor {
             'X-Session-Id': sessionId.current,
             'X-Mode': mode,
           },
+          ...(mc ? { mediaConstraints: mc } : {}),
         });
         call.current = c;
         const dead = () => {

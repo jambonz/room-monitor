@@ -21,7 +21,7 @@ else.
 | Capability | How |
 |---|---|
 | Discover live rooms + participants | `GET /Accounts/{sid}/Conferences?expand=participants` → rooms with `durationSec` and `participants[] { call_sid, label, memberTag, isAgent }` |
-| Who is an "agent" | the **`memberTag`** on each conference member — set by whatever application put them in the conference (see §3.1) |
+| Who is an "agent" | the **`memberTag`** on each conference member — set at join time by whatever application put them in the conference, or added/removed **mid-call** on a live participant (see §3.1) |
 | Supervisor's engagement | one call leg into the conference; modes are mid-call commands on it: `PUT /Accounts/{sid}/Calls/{call_sid}` with `conferenceParticipantAction {coach/uncoach/...}` and `conf_mute_status` — **never a re-dial** |
 | Room audio out (for transcription, AI, recording…) | `POST` / `DELETE /Accounts/{sid}/Conferences/{name}/listen` `{url, sampleRate, wsAuth?, metadata?}` — jambonz streams the room mix (L16 PCM) to *your* WebSocket and knows nothing about what you do with it. Your `metadata` is delivered verbatim as the fork's first text frame. |
 | Routing a WebRTC leg to your app | dial `app-<application_sid>` with an `X-Application-Sid` header (plus any custom `X-*` headers you want to read in your app) — no dial-plan config |
@@ -78,8 +78,45 @@ existing application puts an agent into a conference, add the tag:
 session.conference({ name: room, memberTag: 'agent', ... });
 ```
 
-You can tag mid-call too (`conferenceParticipantAction {action: 'tag', tag}`),
-and you can use richer taxonomies — `speakOnlyTo` accepts any tag, so "coach
+**Tags are fully dynamic** — jambonz has primitives to add or remove a tag on a
+participant who is *already in* a conference, so role changes mid-call need no
+re-join. Two ways to do it with `@jambonz/sdk`:
+
+**From the application controlling that leg** (websocket app) — inject the
+`conf:participant-action` command on the live session:
+
+```js
+// promote a live participant to agent (e.g. warm transfer completed,
+// trainee takes over, human joins an AI-handled call)
+session.injectCommand('conf:participant-action', { action: 'tag', tag: 'agent' });
+
+// demote — remove the tag
+session.injectCommand('conf:participant-action', { action: 'untag' });
+
+// a third argument targets another leg the same session controls (e.g. a dialed B-leg)
+session.injectCommand('conf:participant-action', { action: 'tag', tag: 'agent' }, bLegCallSid);
+```
+
+**From anywhere else** (another service, an ops tool) — the REST client, which
+types the full action set (`tag | untag | coach | uncoach | mute | unmute |
+hold | unhold`):
+
+```js
+import { JambonzClient } from '@jambonz/sdk/client';
+
+const client = new JambonzClient({ baseUrl, accountSid, apiKey });
+await client.calls.update(callSid, {
+  conferenceParticipantAction: { action: 'tag', tag: 'agent' },
+});
+// later: { action: 'untag' }
+```
+
+The system reacts to tag changes live: an active coach re-relates automatically
+(the coaching member's audio starts/stops reaching the participant as their tag
+changes), and this monitor's room list reflects the new agent/other counts —
+and Coach-button gating — within a poll (~2s).
+
+You can also use richer taxonomies — `speakOnlyTo` accepts any tag, so "coach
 only the trainee" or "whisper to the interpreter" are the same mechanism with a
 different tag. The UI's Coach gating (`coachAvailable()` in
 `packages/shared/src/index.ts`) is one line to generalize.

@@ -22,7 +22,7 @@ else.
 |---|---|
 | Discover live rooms + participants | `GET /Accounts/{sid}/Conferences?expand=participants` → rooms with `durationSec` and `participants[] { call_sid, label, memberTag, isAgent }` |
 | Who is an "agent" | the **`memberTag`** on each conference member — set at join time by whatever application put them in the conference, or added/removed **mid-call** on a live participant (see §3.1) |
-| Supervisor's engagement | one call leg into the conference; modes are mid-call commands on it: `PUT /Accounts/{sid}/Calls/{call_sid}` with `conferenceParticipantAction {coach/uncoach/...}` and `conf_mute_status` — **never a re-dial** |
+| Supervisor's engagement | one call leg into the conference; modes are mid-call commands on it (`conferenceParticipantAction {coach/uncoach/...}` + `conf_mute_status`) — **never a re-dial**. This app injects them over the leg's own websocket session (works on any FS topology); the REST equivalent (`PUT /Accounts/{sid}/Calls/{call_sid}`) needs per-instance HTTP routing, which stock single-box deployments don't have |
 | Room audio out (for transcription, AI, recording…) | `POST` / `DELETE /Accounts/{sid}/Conferences/{name}/listen` `{url, sampleRate, wsAuth?, metadata?}` — jambonz streams the room mix (L16 PCM) to *your* WebSocket and knows nothing about what you do with it. Your `metadata` is delivered verbatim as the fork's first text frame. |
 | Routing a WebRTC leg to your app | dial `app-<application_sid>` with an `X-Application-Sid` header (plus any custom `X-*` headers you want to read in your app) — no dial-plan config |
 

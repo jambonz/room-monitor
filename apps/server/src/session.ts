@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Room, ServerMessage, SupervisorMode, TranscriptLine } from '@room-monitor/shared';
 import { JambonzRest, type JambonzCreds } from './jambonz-rest.js';
+import { getSupervisorLeg } from './supervisor-registry.js';
 import { Transcriber } from './transcription.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
@@ -114,21 +115,31 @@ export class SupervisorSession {
     if (roomId) this.send({ type: 'supervisorState', roomId, mode });
   }
 
-  /** Translate a mode into conference participant actions on a call leg. */
+  /**
+   * Translate a mode into conference participant actions on the supervisor's
+   * live leg. Injected over the leg's own websocket session — this reaches the
+   * exact feature-server process that owns the leg regardless of deployment
+   * topology (stock multi-instance boxes share one HTTP port, so leg-scoped
+   * REST updateCall cannot be routed there; the control channel always can).
+   */
   async applyMode(callSid: string, mode: SupervisorMode): Promise<void> {
-    if (!this.rest) return;
+    const leg = getSupervisorLeg(callSid);
+    if (!leg) {
+      logger.warn({ callSid, mode }, 'applyMode: no live supervisor leg session');
+      return;
+    }
     switch (mode) {
       case 'monitor':
-        await this.rest.participantAction(callSid, 'uncoach');
-        await this.rest.setMute(callSid, true);
+        leg.injectCommand('conf:participant-action', { action: 'uncoach' });
+        leg.injectCommand('conf:mute-status', { conf_mute_status: 'mute' });
         break;
       case 'coach':
-        await this.rest.participantAction(callSid, 'coach', 'agent');
-        await this.rest.setMute(callSid, false);
+        leg.injectCommand('conf:participant-action', { action: 'coach', tag: 'agent' });
+        leg.injectCommand('conf:mute-status', { conf_mute_status: 'unmute' });
         break;
       case 'enter':
-        await this.rest.participantAction(callSid, 'uncoach');
-        await this.rest.setMute(callSid, false);
+        leg.injectCommand('conf:participant-action', { action: 'uncoach' });
+        leg.injectCommand('conf:mute-status', { conf_mute_status: 'unmute' });
         break;
       case 'idle':
         break;

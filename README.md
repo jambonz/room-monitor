@@ -43,3 +43,11 @@ held in memory only.
 
 See [DEMO.md](DEMO.md) for platform prerequisites, jambonz account provisioning,
 demo traffic (the `/#phone` page + `tools/traffic/`), and the demo runbook.
+
+## Building on this
+
+Room Monitor is a reference application. [docs/ADAPTING.md](docs/ADAPTING.md)
+covers the stable jambonz contract it's built on, the demo shortcuts to replace
+before production, and the common adaptations (agent tagging in your own call
+flow, operator auth/tenancy, swapping the STT/AI audio consumer, per-leg speaker
+attribution, embedding the UI) — with pointers to the exact seams in the code.

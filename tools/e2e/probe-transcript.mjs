@@ -75,4 +75,9 @@ for (let i = 1; i <= 9; i++) {
   console.log(`[${i * 5}s] transcript: ${text.replace(/\n+/g, ' | ').slice(0, 220) || '(empty)'}`);
 }
 
+// hang up before closing — a closed browser never sends BYE and the
+// platform does not reap the abandoned leg, which pollutes later runs
+await agent.getByRole('button', { name: 'Leave' }).click({ timeout: 2000 }).catch(() => {});
+await caller.getByRole('button', { name: 'Leave' }).click({ timeout: 2000 }).catch(() => {});
+await con.waitForTimeout(2000);
 for (const b of browsers) await b.close().catch(() => {});

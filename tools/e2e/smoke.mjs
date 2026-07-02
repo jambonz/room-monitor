@@ -211,6 +211,12 @@ try {
     console.log('--- console page text ---\n' + txt.slice(0, 800));
   }
 } finally {
+  // hang up before closing — a closed browser never sends BYE and the
+  // platform does not reap the abandoned leg, which pollutes later runs
+  for (const [page, btn] of [[con, 'Stop'], [con, 'Leave room'], [agent, 'Leave'], [caller, 'Leave']]) {
+    if (page) await page.getByRole('button', { name: btn }).click({ timeout: 2000 }).catch(() => {});
+  }
+  if (con) await con.waitForTimeout(2000);
   for (const b of browsers) await b.close().catch(() => {});
 }
 

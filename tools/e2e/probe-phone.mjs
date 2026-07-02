@@ -41,4 +41,8 @@ console.log('\n=== PAGE TEXT ===');
 console.log((await page.locator('body').innerText()).slice(0, 600));
 await page.screenshot({ path: join(here, 'out', 'probe-phone.png') });
 console.log('screenshot: tools/e2e/out/probe-phone.png');
+// hang up before closing — a closed browser never sends BYE and the
+// platform does not reap the abandoned leg
+await page.getByRole('button', { name: 'Leave' }).click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(1500);
 await b.close();

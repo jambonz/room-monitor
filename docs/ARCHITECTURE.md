@@ -53,7 +53,7 @@ React (data WS) ──"set mode" intent──▶ Room Monitor backend
                                           │    conference({ name, joinMuted: true, memberTag: "supervisor" })
                                           │    captures the leg's call_sid
                                           └─ mode change ──▶ conferenceParticipantAction
-                                               (in-session injectCommand, or REST via api-server)
+                                               (injected over the leg's own ws session)
 ```
 
 - The supervisor authenticates the **WebRTC SDK** (`@jambonz/client-sdk-web`,
@@ -65,10 +65,14 @@ React (data WS) ──"set mode" intent──▶ Room Monitor backend
   the conference muted/tagged, and remembers the `call_sid`. The frontend never
   sees the `call_sid`; it sends room-scoped intents ("room X → coach") and the
   backend maps them to the live supervisor leg.
-- Mode changes use `conf:participant-action` (`coach`/`uncoach`/`mute`/`unmute`).
-  These are dual-surfaced in the feature-server (the same `_lcc*` handlers back
-  both the websocket inject and the REST `PUT /Calls/{sid}` path), so either
-  transport works; the in-session inject is lowest latency.
+- Mode changes use `conf:participant-action` (`coach`/`uncoach`) plus
+  `conf:mute-status`, **injected over the supervisor leg's own websocket
+  session**. The same actions are dual-surfaced over REST
+  (`PUT /Calls/{sid}`), but the in-session inject is used deliberately: it
+  reaches the exact feature-server process that owns the leg by construction,
+  so the app works on deployments where multiple FS instances share one HTTP
+  port (the stock single-box config) and leg-scoped REST cannot be routed to a
+  specific instance.
 
 ### Pipeline B — Transcription (no `@jambonz/sdk`, no supervisor leg)
 

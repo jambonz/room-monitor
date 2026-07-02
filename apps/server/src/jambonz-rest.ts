@@ -18,10 +18,13 @@ export interface ListenForkOptions {
 
 /**
  * Thin REST client for the jambonz API, scoped to one account. Uses the supplied
- * API key as a bearer token. Covers the three things the monitor needs:
+ * API key as a bearer token. Covers only the instance-independent calls:
  *   - discover live rooms (enriched Conferences listing)
- *   - change the supervisor's engagement (conferenceParticipantAction / mute)
+ *   - resolve the monitor application + account SIP realm
  *   - start/stop a conference listen fork (transcription tap)
+ * Supervisor mode changes are NOT done via REST — they're injected over the
+ * leg's own websocket session (see session.ts applyMode), which works
+ * regardless of how feature-server instances share HTTP ports on a box.
  */
 export class JambonzRest {
   private readonly base: string;
@@ -80,30 +83,6 @@ export class JambonzRest {
     const res = await this.req('GET', '/Conferences?expand=participants');
     if (!res.ok) throw new Error(`listRooms failed (${res.status})`);
     return (await res.json()) as Room[];
-  }
-
-  /** Apply a conferenceParticipantAction to the supervisor's call leg. */
-  async participantAction(
-    callSid: string,
-    action: 'coach' | 'uncoach' | 'mute' | 'unmute' | 'tag' | 'untag',
-    tag?: string
-  ): Promise<void> {
-    const res = await this.req('PUT', `/Calls/${callSid}`, {
-      conferenceParticipantAction: { action, ...(tag ? { tag } : {}) },
-    });
-    if (!res.ok && res.status !== 202) {
-      logger.warn({ callSid, action, status: res.status }, 'participantAction non-success');
-    }
-  }
-
-  /** Mute/unmute the supervisor's call leg in the conference. */
-  async setMute(callSid: string, muted: boolean): Promise<void> {
-    const res = await this.req('PUT', `/Calls/${callSid}`, {
-      conf_mute_status: muted ? 'mute' : 'unmute',
-    });
-    if (!res.ok && res.status !== 202) {
-      logger.warn({ callSid, muted, status: res.status }, 'setMute non-success');
-    }
   }
 
   /** Start a conference listen fork; returns the bot member id (for stop). */

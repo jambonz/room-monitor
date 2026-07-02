@@ -3,6 +3,7 @@ import { createEndpoint } from '@jambonz/sdk/websocket';
 import type { Session, AudioStream } from '@jambonz/sdk/websocket';
 import type { SupervisorMode } from '@room-monitor/shared';
 import { sessionManager, FORK_SAMPLE_RATE } from './session.js';
+import { registerSupervisorLeg, unregisterSupervisorLeg } from './supervisor-registry.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { addHealthRoute } from './health.js';
@@ -113,9 +114,11 @@ function handleSupervisorCall(session: Session): void {
   const speakOnlyTo = mode === 'coach' ? 'agent' : undefined;
 
   session.on('/conf-done', () => {
+    unregisterSupervisorLeg(session.callSid);
     sup.onSupervisorCallEnded();
     session.hangup().reply();
   });
+  session.on('close', () => unregisterSupervisorLeg(session.callSid));
 
   session
     .answer()
@@ -130,6 +133,7 @@ function handleSupervisorCall(session: Session): void {
     })
     .send();
 
+  registerSupervisorLeg(session.callSid, session);
   sup.onSupervisorCallConnected(session.callSid, mode);
   logger.info({ sessionId, roomName, mode, callSid: session.callSid }, 'supervisor joined conference');
 }

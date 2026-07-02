@@ -22,12 +22,13 @@ export function App() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <TopBar liveCount={rm.rooms.length} username={rm.identity.username} accountSid={rm.identity.accountSid} onSignOut={rm.signOut} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <RoomRail rooms={rm.rooms} selectedRoomId={rm.selectedRoomId} mode={rm.mode} onSelect={rm.selectRoom} />
+        <RoomRail rooms={rm.rooms} selectedRoomId={rm.selectedRoomId} mode={rm.mode} modePending={rm.modePending} onSelect={rm.selectRoom} />
         <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           <RoomDetail
             room={room}
             mode={rm.mode}
             modePending={rm.modePending}
+            engageError={rm.engageError}
             transcriptOn={rm.transcriptOn}
             lines={lines}
             onSetMode={rm.setMode}

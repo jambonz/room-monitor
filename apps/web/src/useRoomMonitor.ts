@@ -22,9 +22,12 @@ export interface RoomMonitorState {
   rooms: Room[];
   selectedRoomId: string | null;
   mode: SupervisorMode;
-  /** True while the supervisor's media leg is being set up — mode buttons are
-   *  disabled until the backend confirms via supervisorState (or the call dies). */
+  /** True while the supervisor's media leg is being set up. Cleared only when
+   *  the WebRTC call is actually accepted (media negotiated) — not by backend
+   *  messages, which can arrive before media is up. A timeout reverts to idle. */
   modePending: boolean;
+  /** Set when an engage attempt fails or times out; shown in the control bar. */
+  engageError: string;
   transcriptOn: boolean;
   transcriptsByRoom: Record<string, TranscriptLine[]>;
   identity: { username: string; accountSid: string };
@@ -47,6 +50,7 @@ export function useRoomMonitor(): RoomMonitor {
     selectedRoomId: null,
     mode: 'idle',
     modePending: false,
+    engageError: '',
     transcriptOn: false,
     transcriptsByRoom: {},
     identity: { username: '', accountSid: '' },
@@ -73,7 +77,16 @@ export function useRoomMonitor(): RoomMonitor {
     if (sock && sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify(msg));
   }, []);
 
+  const connectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearConnectTimer = useCallback(() => {
+    if (connectTimer.current) {
+      clearTimeout(connectTimer.current);
+      connectTimer.current = null;
+    }
+  }, []);
+
   const hangupCall = useCallback(() => {
+    clearConnectTimer();
     if (call.current) {
       try {
         call.current.hangup();
@@ -82,7 +95,7 @@ export function useRoomMonitor(): RoomMonitor {
       }
       call.current = null;
     }
-  }, []);
+  }, [clearConnectTimer]);
 
   // ---- server -> client messages ------------------------------------------
   const onServerMessage = useCallback(
@@ -135,9 +148,9 @@ export function useRoomMonitor(): RoomMonitor {
           break;
         }
         case 'supervisorState':
-          setState((s) =>
-            s.selectedRoomId === msg.roomId ? { ...s, mode: msg.mode, modePending: false } : s
-          );
+          // mode authority only — pending is cleared by the call's 'accepted'
+          // event (real media), never by backend messages (issue #2)
+          setState((s) => (s.selectedRoomId === msg.roomId ? { ...s, mode: msg.mode } : s));
           break;
         case 'transcriptState':
           setState((s) =>
@@ -190,7 +203,7 @@ export function useRoomMonitor(): RoomMonitor {
     appSid.current = '';
     creds.current = { username: '', password: '' };
     selectedRef.current = null;
-    setState((s) => ({ ...s, phase: 'login', mode: 'idle', modePending: false, transcriptOn: false, selectedRoomId: null, rooms: [], transcriptsByRoom: {} }));
+    setState((s) => ({ ...s, phase: 'login', mode: 'idle', modePending: false, engageError: '', transcriptOn: false, selectedRoomId: null, rooms: [], transcriptsByRoom: {} }));
   }, [hangupCall]);
 
   const selectRoom = useCallback(
@@ -199,7 +212,7 @@ export function useRoomMonitor(): RoomMonitor {
       hangupCall();
       selectedRef.current = roomId;
       sendWs({ type: 'select', roomId });
-      setState((s) => ({ ...s, selectedRoomId: roomId, mode: 'idle', modePending: false, transcriptOn: false }));
+      setState((s) => ({ ...s, selectedRoomId: roomId, mode: 'idle', modePending: false, engageError: '', transcriptOn: false }));
     },
     [sendWs, hangupCall]
   );
@@ -214,8 +227,10 @@ export function useRoomMonitor(): RoomMonitor {
         // idle -> connected: place the WebRTC media leg into the conference.
         // Routed straight to the monitor application (no dial plan needed):
         // app-<sid> target + X-Application-Sid header, per the jambonz SBC
-        // routing convention. Buttons stay disabled (modePending) until the
-        // backend confirms the leg via supervisorState.
+        // routing convention. The UI shows "Connecting…" (modePending) until
+        // the call is ACCEPTED — i.e. media actually negotiated — never on
+        // backend messages, which can precede media. A timeout reverts to idle
+        // so a stalled leg can't wedge the UI (issue #2).
         const client = sip.current;
         if (!client || !appSid.current) return;
         const mc = micConstraints();
@@ -229,27 +244,47 @@ export function useRoomMonitor(): RoomMonitor {
           ...(mc ? { mediaConstraints: mc } : {}),
         });
         call.current = c;
-        const dead = () => {
+        c.on('accepted', () => {
+          clearConnectTimer();
+          setState((s) => ({ ...s, modePending: false }));
+        });
+        c.on('ended', () => {
+          clearConnectTimer();
           call.current = null;
           setState((s) => ({ ...s, mode: 'idle', modePending: false }));
-        };
-        c.on('ended', dead);
-        c.on('failed', dead);
-        setState((s) => ({ ...s, mode, modePending: true }));
+        });
+        c.on('failed', () => {
+          clearConnectTimer();
+          call.current = null;
+          setState((s) => ({ ...s, mode: 'idle', modePending: false, engageError: 'The monitoring call failed — try again.' }));
+        });
+        clearConnectTimer();
+        connectTimer.current = setTimeout(() => {
+          connectTimer.current = null;
+          if (!stateRef.current.modePending) return;
+          hangupCall();
+          setState((s) => ({
+            ...s,
+            mode: 'idle',
+            modePending: false,
+            engageError: 'Could not connect within 15 seconds — check your network and try again.',
+          }));
+        }, 15000);
+        setState((s) => ({ ...s, mode, modePending: true, engageError: '' }));
         return;
       }
       // already connected: switch mode on the live leg
       sendWs({ type: 'setMode', roomId, mode });
       setState((s) => ({ ...s, mode }));
     },
-    [sendWs]
+    [sendWs, hangupCall, clearConnectTimer]
   );
 
   const stop = useCallback(() => {
     const roomId = selectedRef.current;
     hangupCall();
     if (roomId) sendWs({ type: 'setMode', roomId, mode: 'idle' });
-    setState((s) => ({ ...s, mode: 'idle', modePending: false }));
+    setState((s) => ({ ...s, mode: 'idle', modePending: false, engageError: '' }));
   }, [sendWs, hangupCall]);
 
   const toggleTranscript = useCallback(() => {

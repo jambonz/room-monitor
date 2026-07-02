@@ -63,6 +63,7 @@ export function RoomDetail({
   room,
   mode,
   modePending,
+  engageError,
   transcriptOn,
   lines,
   onSetMode,
@@ -72,6 +73,7 @@ export function RoomDetail({
   room: Room | null;
   mode: SupervisorMode;
   modePending: boolean;
+  engageError: string;
   transcriptOn: boolean;
   lines: TranscriptLine[];
   onSetMode: (m: Exclude<SupervisorMode, 'idle'>) => void;
@@ -93,8 +95,10 @@ export function RoomDetail({
   const agents = agentCount(room);
   const others = otherCount(room);
   const hasAgents = coachAvailable(room);
-  const listening = mode !== 'idle';
-  const sup = SUP_ROLE[mode];
+  const listening = mode !== 'idle' && !modePending;
+  const sup = modePending
+    ? { role: 'connecting…', color: '#9a9899', bg: 'var(--grey-light)', border: 'var(--grey-light)', dot: 'var(--grey)' }
+    : SUP_ROLE[mode];
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--white)', minHeight: 0 }}>
@@ -147,21 +151,28 @@ export function RoomDetail({
         </div>
 
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-          {listening ? (
+          {modePending ? (
+            <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-medium)', color: '#9a9899' }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--grey)', marginRight: 8, animation: 'rm-eq 900ms ease-in-out infinite' }} />
+              Connecting…
+            </span>
+          ) : listening ? (
             <>
               <Wave color={MODE_COLOR[mode as Exclude<SupervisorMode, 'idle'>]} />
               <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-medium)', color: MODE_COLOR[mode as Exclude<SupervisorMode, 'idle'>], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
                 {MODE_STATUS[mode as Exclude<SupervisorMode, 'idle'>]}
               </span>
             </>
+          ) : engageError ? (
+            <span style={{ fontSize: '0.85rem', color: 'var(--red)' }}>{engageError}</span>
           ) : (
             <span style={{ fontSize: '0.85rem', color: '#9a9899' }}>You are not connected to this room — the participants won't hear you.</span>
           )}
         </div>
 
-        {listening && (
+        {(listening || modePending) && (
           <button onClick={onStop} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 9, cursor: 'pointer', flex: 'none', fontFamily: 'var(--font-medium)', fontSize: '0.9rem', border: '1.5px solid var(--grey)', color: '#6b6869', background: 'var(--white)' }}>
-            <LogOut size={16} /> {mode === 'enter' ? 'Leave room' : 'Stop'}
+            <LogOut size={16} /> {modePending ? 'Cancel' : mode === 'enter' ? 'Leave room' : 'Stop'}
           </button>
         )}
       </div>

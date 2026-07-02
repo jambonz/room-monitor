@@ -30,7 +30,7 @@ function EmptyState() {
   );
 }
 
-export function RoomRail({ rooms, selectedRoomId, mode, onSelect }: { rooms: Room[]; selectedRoomId: string | null; mode: SupervisorMode; onSelect: (id: string) => void }) {
+export function RoomRail({ rooms, selectedRoomId, mode, modePending, onSelect }: { rooms: Room[]; selectedRoomId: string | null; mode: SupervisorMode; modePending: boolean; onSelect: (id: string) => void }) {
   return (
     <div style={{ width: 380, flex: 'none', display: 'flex', flexDirection: 'column', background: 'var(--white)', borderRight: '1px solid #e4e3e3', minHeight: 0 }}>
       <div style={{ flex: 'none', padding: '16px 18px 12px', borderBottom: '1px solid var(--grey-light)' }}>
@@ -70,7 +70,7 @@ export function RoomRail({ rooms, selectedRoomId, mode, onSelect }: { rooms: Roo
                   </span>
                 </div>
               </div>
-              {isSel && mode !== 'idle' && <Equalizer />}
+              {isSel && mode !== 'idle' && !modePending && <Equalizer />}
             </div>
           );
         })}

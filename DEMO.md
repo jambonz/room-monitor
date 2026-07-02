@@ -112,6 +112,10 @@ SBC=<sbc-host> APP_SID=<application-sid> WAV=speech.wav \
 # add AUTH_USER/AUTH_PASS if your SBC digest-challenges INVITEs
 ```
 
+> Testing with real people? [docs/LIVE-TEST.md](docs/LIVE-TEST.md) is a
+> ready-to-send hand-out for a three-person test (supervisor / agent / caller)
+> — fill in the placeholders from your deployment and share it privately.
+
 ## 5. Demo script
 
 1. **Login** — open `http://localhost:3000`, enter Base URL (api-server),

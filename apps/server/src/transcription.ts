@@ -46,7 +46,7 @@ export class Transcriber {
       encoding: 'linear16',
       sample_rate: String(this.opts.sampleRate),
       channels: String(this.opts.channels ?? 1),
-      model: 'nova-2',
+      model: 'nova-3-general',
       diarize: 'true',
       punctuate: 'true',
       interim_results: 'false',

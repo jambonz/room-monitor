@@ -28,6 +28,11 @@ const ls = (k: string) => {
   }
 };
 
+/** Room preset from the URL (e.g. /#phone?room=support-line) so test
+ *  instructions can carry a one-click link that puts everyone in the same room. */
+const hashRoom = (): string =>
+  new URLSearchParams(location.hash.split('?')[1] ?? '').get('room') ?? '';
+
 type PhoneState = 'idle' | 'joining' | 'in-room';
 
 const inputStyle: React.CSSProperties = {
@@ -56,7 +61,7 @@ export function PhonePage() {
   const [appSid, setAppSid] = useState(ls(LS.appSid));
   const [username, setUsername] = useState(ls(LS.username));
   const [password, setPassword] = useState('');
-  const [room, setRoom] = useState(ls(LS.room) || 'demo-room');
+  const [room, setRoom] = useState(hashRoom() || ls(LS.room) || 'demo-room');
   const [role, setRole] = useState<'agent' | 'caller'>('agent');
   const [state, setPhoneState] = useState<PhoneState>('idle');
   const [muted, setMuted] = useState(false);

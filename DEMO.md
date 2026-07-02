@@ -87,7 +87,10 @@ MediaJam network (it receives the supervisor call control and the fork audio).
 
 ### Live participants — the phone page (primary)
 
-Open `http://localhost:3000/#phone` in one tab per participant:
+Open `http://localhost:3000/#phone` in one tab per participant. To make sure
+everyone lands in the same room, share a link with the room preset — e.g.
+`…/#phone?room=support-line` (use the same name as the caller app's
+`ROOM_NAME`); the Room field prefills from it.
 
 - SBC URL + Application SID prefill automatically if the console has connected
   on the same browser; otherwise paste them.

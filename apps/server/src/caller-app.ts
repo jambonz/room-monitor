@@ -22,6 +22,13 @@ const envVars = {
     description: 'Conference room inbound callers join (appears as the room name in the Call Monitor)',
     default: 'lobby',
   },
+  ROLE: {
+    type: 'string' as const,
+    description:
+      "Role for inbound callers: 'caller' (plain participant) or 'agent' (tagged so Coach/whisper reaches them). " +
+      'Point one DID at an application with ROLE=caller and another at one with ROLE=agent.',
+    default: 'caller',
+  },
 };
 
 const DEFAULT_ROOM = 'lobby';
@@ -43,16 +50,22 @@ export function startCallerApp(): http.Server {
 }
 
 function handleCaller(session: Session): void {
-  const envRoom = (session.data.env_vars as Record<string, string> | undefined)?.ROOM_NAME;
-  const roomName = (envRoom ?? '').trim() || DEFAULT_ROOM;
+  const env = session.data.env_vars as Record<string, string> | undefined;
+  const roomName = (env?.ROOM_NAME ?? '').trim() || DEFAULT_ROOM;
+  const isAgent = (env?.ROLE ?? '').trim().toLowerCase() === 'agent';
+  const spoken = roomName.replace(/[-_]/g, ' ');
   session
     .answer()
-    .say({ text: `Welcome. Joining ${roomName.replace(/[-_]/g, ' ')}.` })
+    .say({ text: isAgent ? `Joining ${spoken} as an agent.` : `Welcome. Joining ${spoken}.` })
     .conference({
       name: roomName,
+      ...(isAgent ? { memberTag: 'agent' } : {}),
       startConferenceOnEnter: true,
       endConferenceOnExit: false,
     })
     .send();
-  logger.info({ callSid: session.callSid, from: session.from, roomName }, 'caller joined conference');
+  logger.info(
+    { callSid: session.callSid, from: session.from, roomName, role: isAgent ? 'agent' : 'caller' },
+    'caller joined conference'
+  );
 }

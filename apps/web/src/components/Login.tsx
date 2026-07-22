@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { Wifi, AlertTriangle } from 'react-feather';
 import type { LoginForm } from '../useRoomMonitor.js';
 
+// All fields persist, secrets included — this console is a demo/ops tool and
+// re-typing the API key and SIP password on every reload caused more real
+// failures (mismatched user/password pairs) than the persistence risks.
 const LS = {
   baseUrl: 'rm_baseUrl',
   accountSid: 'rm_accountSid',
+  apiKey: 'rm_apiKey',
   username: 'rm_username',
+  password: 'rm_password',
 };
 const ls = (k: string) => {
   try {
@@ -46,9 +51,9 @@ const sectionStyle: React.CSSProperties = {
 export function Login({ error, busy, onConnect }: { error: string; busy: boolean; onConnect: (f: LoginForm) => void }) {
   const [baseUrl, setBaseUrl] = useState(ls(LS.baseUrl));
   const [accountSid, setAccountSid] = useState(ls(LS.accountSid));
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState(ls(LS.apiKey));
   const [username, setUsername] = useState(ls(LS.username));
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(ls(LS.password));
   const [localErr, setLocalErr] = useState('');
 
   const submit = () => {
@@ -60,7 +65,9 @@ export function Login({ error, busy, onConnect }: { error: string; busy: boolean
     try {
       localStorage.setItem(LS.baseUrl, baseUrl);
       localStorage.setItem(LS.accountSid, accountSid);
+      localStorage.setItem(LS.apiKey, apiKey);
       localStorage.setItem(LS.username, username);
+      localStorage.setItem(LS.password, password);
     } catch {
       /* ignore */
     }

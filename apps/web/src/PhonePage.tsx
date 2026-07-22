@@ -109,6 +109,8 @@ export function PhonePage() {
         username,
         password,
         ...(sipRealm.trim() ? { realm: sipRealm.trim() } : {}),
+        // keep the SIP socket warm through NAT idle timeouts (see useRoomMonitor)
+        registerExpires: 30,
       });
       await c.connect();
       client.current = c;

@@ -140,6 +140,13 @@ SBC=<sbc-host> APP_SID=<application-sid> WAV=speech.wav \
 
 ## 6. Troubleshooting
 
+- **First move for any browser-side problem — turn on SIP tracing.** In the
+  browser devtools console run `localStorage.debug = 'JsSIP:*'`, reload, and
+  retry: the SDK's full SIP stack (REGISTER, INVITE, digest auth, transport,
+  ICE) then logs to the console in real time. The console/phone pages also log
+  every call-leg event (`[room-monitor] placing supervisor leg`, `accepted`,
+  `FAILED` with SIP code + reason). Disable with
+  `localStorage.removeItem('debug')`.
 - **Login fails with "no application named room-monitor"** — the application
   isn't provisioned (or is named differently; set `MONITOR_APP_NAME`).
 - **Listen/Coach/Enter does nothing** — check the backend log for

@@ -118,16 +118,25 @@ export function PhonePage() {
         ...(mc ? { mediaConstraints: mc } : {}),
       });
       call.current = jc;
-      jc.on('accepted', () => setPhoneState('in-room'));
-      const dead = () => {
+      console.info('[room-monitor phone] placing leg', { target: `app-${appSid}`, room, role });
+      jc.on('accepted', () => {
+        console.info('[room-monitor phone] leg accepted');
+        setPhoneState('in-room');
+      });
+      const dead = (cause: unknown) => {
+        console.info('[room-monitor phone] leg ended', cause);
         leave();
       };
       jc.on('ended', dead);
-      jc.on('failed', () => {
-        setError('Call failed — check the application SID and SBC URL.');
+      jc.on('failed', (cause: unknown) => {
+        console.error('[room-monitor phone] leg FAILED', cause);
+        const info = cause as { code?: number; reason?: string } | undefined;
+        const detail = info?.reason ? ` (${info.reason}${info.code ? `, ${info.code}` : ''})` : '';
+        setError(`Call failed${detail} — check the application SID and SBC URL.`);
         leave();
       });
-    } catch {
+    } catch (err) {
+      console.error('[room-monitor phone] SBC registration failed', err);
       setError('Could not register with the SBC — check the URL and credentials.');
       leave();
     }

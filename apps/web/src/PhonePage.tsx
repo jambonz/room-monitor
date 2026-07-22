@@ -115,6 +115,10 @@ export function PhonePage() {
       const mc = micConstraints();
       const jc = c.call(`app-${appSid}`, {
         headers: { 'X-Application-Sid': appSid, 'X-Room': room, 'X-Role': role },
+        // Host candidates only — see useRoomMonitor.ts: waiting on third-party
+        // STUN stalls the INVITE on UDP-filtered networks, and the publicly
+        // reachable SBC doesn't need it.
+        pcConfig: { iceServers: [] },
         ...(mc ? { mediaConstraints: mc } : {}),
       });
       call.current = jc;

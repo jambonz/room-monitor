@@ -241,6 +241,12 @@ export function useRoomMonitor(): RoomMonitor {
             'X-Session-Id': sessionId.current,
             'X-Mode': mode,
           },
+          // Host candidates only. The SBC is publicly reachable and learns the
+          // browser's address from the ICE checks it receives (prflx), so
+          // third-party STUN adds nothing — and JsSIP won't send the INVITE
+          // until gathering completes, which stalls past the 15s connect gate
+          // on networks that filter UDP to the STUN server.
+          pcConfig: { iceServers: [] },
           ...(mc ? { mediaConstraints: mc } : {}),
         });
         call.current = c;

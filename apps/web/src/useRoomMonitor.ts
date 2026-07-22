@@ -119,6 +119,10 @@ export function useRoomMonitor(): RoomMonitor {
               password: creds.current.password,
               // register against the account's SIP realm, not the wss hostname
               ...(msg.sipRealm ? { realm: msg.sipRealm } : {}),
+              // short registration = traffic on the SIP socket every ~20s, so
+              // NAT/firewall idle timeouts can't silently kill it while the
+              // supervisor sits signed-in between actions
+              registerExpires: 30,
             });
             await client.connect();
             sip.current = client;
@@ -234,43 +238,57 @@ export function useRoomMonitor(): RoomMonitor {
         // so a stalled leg can't wedge the UI (issue #2).
         const client = sip.current;
         if (!client || !appSid.current) return;
-        const mc = micConstraints();
-        const c = client.call(`app-${appSid.current}`, {
-          headers: {
-            'X-Application-Sid': appSid.current,
-            'X-Room': roomId,
-            'X-Session-Id': sessionId.current,
-            'X-Mode': mode,
-          },
-          // Host candidates only. The SBC is publicly reachable and learns the
-          // browser's address from the ICE checks it receives (prflx), so
-          // third-party STUN adds nothing — and JsSIP won't send the INVITE
-          // until gathering completes, which stalls past the 15s connect gate
-          // on networks that filter UDP to the STUN server.
-          pcConfig: { iceServers: [] },
-          ...(mc ? { mediaConstraints: mc } : {}),
-        });
-        call.current = c;
-        console.info('[room-monitor] placing supervisor leg', { target: `app-${appSid.current}`, room: roomId, mode });
-        c.on('accepted', () => {
-          console.info('[room-monitor] supervisor leg accepted (media up)');
-          clearConnectTimer();
-          setState((s) => ({ ...s, modePending: false }));
-        });
-        c.on('ended', (cause: unknown) => {
-          console.info('[room-monitor] supervisor leg ended', cause);
-          clearConnectTimer();
-          call.current = null;
-          setState((s) => ({ ...s, mode: 'idle', modePending: false }));
-        });
-        c.on('failed', (cause: unknown) => {
-          console.error('[room-monitor] supervisor leg FAILED', cause);
-          const info = cause as { code?: number; reason?: string } | undefined;
-          const detail = info?.reason ? ` (${info.reason}${info.code ? `, ${info.code}` : ''})` : '';
-          clearConnectTimer();
-          call.current = null;
-          setState((s) => ({ ...s, mode: 'idle', modePending: false, engageError: `The monitoring call failed${detail} — try again.` }));
-        });
+        const placeLeg = (attempt: number) => {
+          const mc = micConstraints();
+          const c = client.call(`app-${appSid.current}`, {
+            headers: {
+              'X-Application-Sid': appSid.current,
+              'X-Room': roomId,
+              'X-Session-Id': sessionId.current,
+              'X-Mode': mode,
+            },
+            // Host candidates only. The SBC is publicly reachable and learns the
+            // browser's address from the ICE checks it receives (prflx), so
+            // third-party STUN adds nothing — and JsSIP won't send the INVITE
+            // until gathering completes, which stalls past the 15s connect gate
+            // on networks that filter UDP to the STUN server.
+            pcConfig: { iceServers: [] },
+            ...(mc ? { mediaConstraints: mc } : {}),
+          });
+          call.current = c;
+          console.info('[room-monitor] placing supervisor leg', { target: `app-${appSid.current}`, room: roomId, mode, attempt });
+          c.on('accepted', () => {
+            console.info('[room-monitor] supervisor leg accepted (media up)');
+            clearConnectTimer();
+            setState((s) => ({ ...s, modePending: false }));
+          });
+          c.on('ended', (cause: unknown) => {
+            console.info('[room-monitor] supervisor leg ended', cause);
+            clearConnectTimer();
+            call.current = null;
+            setState((s) => ({ ...s, mode: 'idle', modePending: false }));
+          });
+          c.on('failed', (cause: unknown) => {
+            console.error('[room-monitor] supervisor leg FAILED', cause);
+            const info = cause as { code?: number; reason?: string } | undefined;
+            call.current = null;
+            // code 0 = the INVITE never got a SIP answer — typically the socket
+            // was silently reaped by a NAT/firewall while idle and the write
+            // discovered it. JsSIP reconnects and re-registers on its own within
+            // ~2s; retry once on the fresh socket instead of failing the click.
+            if (attempt === 0 && info?.code === 0) {
+              console.warn('[room-monitor] transport hiccup — retrying once after reconnect');
+              setTimeout(() => {
+                if (stateRef.current.modePending && selectedRef.current === roomId) placeLeg(1);
+              }, 2500);
+              return;
+            }
+            const detail = info?.reason ? ` (${info.reason}${info.code ? `, ${info.code}` : ''})` : '';
+            clearConnectTimer();
+            setState((s) => ({ ...s, mode: 'idle', modePending: false, engageError: `The monitoring call failed${detail} — try again.` }));
+          });
+        };
+        placeLeg(0);
         clearConnectTimer();
         connectTimer.current = setTimeout(() => {
           connectTimer.current = null;

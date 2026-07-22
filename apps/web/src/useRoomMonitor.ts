@@ -123,7 +123,8 @@ export function useRoomMonitor(): RoomMonitor {
             await client.connect();
             sip.current = client;
             setState((s) => ({ ...s, phase: 'console', loginError: '' }));
-          } catch {
+          } catch (err) {
+            console.error('[room-monitor] WebRTC registration failed', err);
             setState((s) => ({ ...s, phase: 'login', loginError: 'Connected, but WebRTC registration failed.' }));
           }
           break;
@@ -250,24 +251,34 @@ export function useRoomMonitor(): RoomMonitor {
           ...(mc ? { mediaConstraints: mc } : {}),
         });
         call.current = c;
+        console.info('[room-monitor] placing supervisor leg', { target: `app-${appSid.current}`, room: roomId, mode });
         c.on('accepted', () => {
+          console.info('[room-monitor] supervisor leg accepted (media up)');
           clearConnectTimer();
           setState((s) => ({ ...s, modePending: false }));
         });
-        c.on('ended', () => {
+        c.on('ended', (cause: unknown) => {
+          console.info('[room-monitor] supervisor leg ended', cause);
           clearConnectTimer();
           call.current = null;
           setState((s) => ({ ...s, mode: 'idle', modePending: false }));
         });
-        c.on('failed', () => {
+        c.on('failed', (cause: unknown) => {
+          console.error('[room-monitor] supervisor leg FAILED', cause);
+          const info = cause as { code?: number; reason?: string } | undefined;
+          const detail = info?.reason ? ` (${info.reason}${info.code ? `, ${info.code}` : ''})` : '';
           clearConnectTimer();
           call.current = null;
-          setState((s) => ({ ...s, mode: 'idle', modePending: false, engageError: 'The monitoring call failed — try again.' }));
+          setState((s) => ({ ...s, mode: 'idle', modePending: false, engageError: `The monitoring call failed${detail} — try again.` }));
         });
         clearConnectTimer();
         connectTimer.current = setTimeout(() => {
           connectTimer.current = null;
           if (!stateRef.current.modePending) return;
+          console.error(
+            '[room-monitor] supervisor leg timed out: no accepted/failed event within 15s.',
+            'For full SIP tracing run  localStorage.debug = "JsSIP:*"  in this console, reload, and retry.'
+          );
           hangupCall();
           setState((s) => ({
             ...s,

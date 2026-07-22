@@ -18,6 +18,7 @@ const LS = {
   appSid: 'rm_appSid',
   sipRealm: 'rm_sipRealm',
   username: 'rmphone_username',
+  password: 'rmphone_password',
   room: 'rmphone_room',
 };
 const ls = (k: string) => {
@@ -60,7 +61,7 @@ export function PhonePage() {
   const [sipRealm, setSipRealm] = useState(ls(LS.sipRealm));
   const [appSid, setAppSid] = useState(ls(LS.appSid));
   const [username, setUsername] = useState(ls(LS.username));
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(ls(LS.password));
   const [room, setRoom] = useState(hashRoom() || ls(LS.room) || 'demo-room');
   const [role, setRole] = useState<'agent' | 'caller'>('agent');
   const [state, setPhoneState] = useState<PhoneState>('idle');
@@ -98,6 +99,7 @@ export function PhonePage() {
       localStorage.setItem(LS.sipRealm, sipRealm);
       localStorage.setItem(LS.appSid, appSid);
       localStorage.setItem(LS.username, username);
+      localStorage.setItem(LS.password, password);
       localStorage.setItem(LS.room, room);
     } catch {
       /* ignore */

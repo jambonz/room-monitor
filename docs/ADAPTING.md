@@ -41,10 +41,13 @@ one for your product:
    can monitor calls. Put your operator authentication in front of it
    (`apps/server/src/data-ws.ts` is the seam — authenticate the WS upgrade or
    the `connect` message against your IdP/JWT).
-2. **Credentials typed into the login screen.** The account SID + API key
-   travel browser → backend per session. In production the backend should hold
-   its jambonz credentials server-side (env/secret store) and your operators
-   should log in with *their* identity, mapped to an account.
+2. **Credentials typed into the login screen — and persisted in
+   localStorage.** All login fields, including the API key and SIP password,
+   are remembered by the browser (`components/Login.tsx`, `PhonePage.tsx`) so a
+   reload doesn't force re-typing — a deliberate demo-tool convenience. In
+   production the backend should hold its jambonz credentials server-side
+   (env/secret store) and your operators should log in with *their* identity,
+   mapped to an account; nothing secret belongs in browser storage.
 3. **The phone page and the caller/demo apps are test fixtures.** In your world,
    agents and callers arrive through your existing call flow — delete
    `PhonePage.tsx`, the `X-Role` branch in `jambonz-app.ts`, and

@@ -29,10 +29,13 @@ const ls = (k: string) => {
   }
 };
 
-/** Room preset from the URL (e.g. /#phone?room=support-line) so test
- *  instructions can carry a one-click link that puts everyone in the same room. */
-const hashRoom = (): string =>
-  new URLSearchParams(location.hash.split('?')[1] ?? '').get('room') ?? '';
+/** URL hash params (e.g. /#phone?room=support-line&codec=pcmu): `room` presets
+ *  the room so test instructions can carry a one-click link; `codec` forces a
+ *  preferred codec on the leg (test hook — pcmu simulates a PSTN/G.711 caller,
+ *  narrowband audio in the room mix, like a real DID call). */
+const hashParam = (k: string): string =>
+  new URLSearchParams(location.hash.split('?')[1] ?? '').get(k) ?? '';
+const hashRoom = (): string => hashParam('room');
 
 type PhoneState = 'idle' | 'joining' | 'in-room';
 
@@ -124,6 +127,7 @@ export function PhonePage() {
         // reachable SBC doesn't need it.
         pcConfig: { iceServers: [] },
         ...(mc ? { mediaConstraints: mc } : {}),
+        ...(hashParam('codec') ? { preferredCodecs: [hashParam('codec').toUpperCase()] } : {}),
       });
       call.current = jc;
       console.info('[room-monitor phone] placing leg', { target: `app-${appSid}`, room, role });

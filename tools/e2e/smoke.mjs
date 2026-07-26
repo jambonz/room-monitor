@@ -167,15 +167,26 @@ try {
   if (sawParticipant) pass('participant speech transcribed — audio path verified');
   else await fail('no participant speech in transcript after 60s', con);
   // Member-scoped forks (scope=members) label lines with real participant
-  // identities; the diarized mix fallback labels them "Speaker N".
-  const coachText = await con.locator('.rm-scroll').innerText().catch(() => '');
-  const memberLabels = /agent1 \(agent\)/.test(coachText) && /caller1/.test(coachText);
-  if (memberLabels) pass('member-scoped transcript: real participant labels (agent1/caller1)');
-  else if (/Speaker \d/.test(coachText)) pass('mix-fallback transcript: diarized Speaker labels');
-  else await fail('transcript lines carry neither member labels nor Speaker labels', con);
-  // supervisor is coaching: their speech should NOT be in the transcript
-  if (!SUPERVISOR_WORDS.test(coachText)) pass('coach privacy: supervisor speech absent from transcript');
-  else await fail('coach audio leaked into the transcript', con);
+  // identities; the diarized mix fallback labels them "Speaker N". Both
+  // participants' lines take a few utterances to accumulate — wait for a
+  // conclusive read rather than sampling one instant.
+  let memberLabels = false;
+  {
+    const labelDeadline = Date.now() + 45000;
+    let text = '';
+    while (Date.now() < labelDeadline) {
+      text = await con.locator('.rm-scroll').innerText().catch(() => '');
+      if (/agent1 \(agent\)/.test(text) && /caller1/.test(text)) { memberLabels = true; break; }
+      if (/Speaker \d/.test(text)) break; // diarized fallback mode
+      await con.waitForTimeout(2000);
+    }
+    if (memberLabels) pass('member-scoped transcript: real participant labels (agent1/caller1)');
+    else if (/Speaker \d/.test(text)) pass('mix-fallback transcript: diarized Speaker labels');
+    else await fail('transcript lines carry neither member labels nor Speaker labels', con);
+    // supervisor is coaching: their speech should NOT be in the transcript
+    if (!SUPERVISOR_WORDS.test(text)) pass('coach privacy: supervisor speech absent from transcript');
+    else await fail('coach audio leaked into the transcript', con);
+  }
 
   step('7. Enter Room (barge-in)');
   await con.getByRole('button', { name: 'Enter Room' }).click();

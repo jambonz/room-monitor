@@ -3,6 +3,7 @@ import type { Room, SupervisorMode, TranscriptLine } from '@room-monitor/shared'
 import { agentCount, otherCount, coachAvailable } from '@room-monitor/shared';
 import { fmtDur, speakerColor } from '../format.js';
 import { TranscriptList, TranscriptOff } from './Transcript.js';
+import { MicPicker } from './MicPicker.js';
 
 const MODE_STATUS: Record<Exclude<SupervisorMode, 'idle'>, string> = {
   monitor: 'Monitoring silently — the participants cannot hear you',
@@ -169,6 +170,8 @@ export function RoomDetail({
             <span style={{ fontSize: '0.85rem', color: '#9a9899' }}>You are not connected to this room — the participants won't hear you.</span>
           )}
         </div>
+
+        <MicPicker />
 
         {(listening || modePending) && (
           <button onClick={onStop} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 9, cursor: 'pointer', flex: 'none', fontFamily: 'var(--font-medium)', fontSize: '0.9rem', border: '1.5px solid var(--grey)', color: '#6b6869', background: 'var(--white)' }}>

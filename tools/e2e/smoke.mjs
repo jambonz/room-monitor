@@ -166,24 +166,52 @@ try {
   }
   if (sawParticipant) pass('participant speech transcribed — audio path verified');
   else await fail('no participant speech in transcript after 60s', con);
-  // supervisor is coaching: their speech should NOT be in the room mix
-  const coachText = await con.locator('.rm-scroll').innerText().catch(() => '');
-  if (!SUPERVISOR_WORDS.test(coachText)) pass('coach privacy: supervisor speech absent from room mix');
-  else await fail('coach audio leaked into the room mix transcript', con);
+  // Member-scoped forks (scope=members) label lines with real participant
+  // identities; the diarized mix fallback labels them "Speaker N". Both
+  // participants' lines take a few utterances to accumulate — wait for a
+  // conclusive read rather than sampling one instant.
+  let memberLabels = false;
+  {
+    const labelDeadline = Date.now() + 45000;
+    let text = '';
+    while (Date.now() < labelDeadline) {
+      text = await con.locator('.rm-scroll').innerText().catch(() => '');
+      if (/agent1 \(agent\)/.test(text) && /caller1/.test(text)) { memberLabels = true; break; }
+      if (/Speaker \d/.test(text)) break; // diarized fallback mode
+      await con.waitForTimeout(2000);
+    }
+    if (memberLabels) pass('member-scoped transcript: real participant labels (agent1/caller1)');
+    else if (/Speaker \d/.test(text)) pass('mix-fallback transcript: diarized Speaker labels');
+    else await fail('transcript lines carry neither member labels nor Speaker labels', con);
+    // supervisor is coaching: their speech should NOT be in the transcript
+    if (!SUPERVISOR_WORDS.test(text)) pass('coach privacy: supervisor speech absent from transcript');
+    else await fail('coach audio leaked into the transcript', con);
+  }
 
-  step('7. Enter Room (barge-in) — supervisor speech now audible');
+  step('7. Enter Room (barge-in)');
   await con.getByRole('button', { name: 'Enter Room' }).click();
   await visible(con, 'everyone can hear you', 15000);
   pass('entered room');
-  const enterDeadline = Date.now() + 45000;
-  let sawSupervisor = false;
-  while (Date.now() < enterDeadline) {
+  if (memberLabels) {
+    // member forks carry only what each PARTICIPANT says — the supervisor's
+    // leg is never transcribed, so their speech stays absent even after
+    // barge-in (privacy by construction; uplink audibility is covered by the
+    // mediajam member-fork tests and the human walkthrough).
+    await con.waitForTimeout(15000);
     const text = await con.locator('.rm-scroll').innerText().catch(() => '');
-    if (SUPERVISOR_WORDS.test(text)) { sawSupervisor = true; break; }
-    await con.waitForTimeout(2000);
+    if (!SUPERVISOR_WORDS.test(text)) pass('member scope: supervisor leg never transcribed (by construction)');
+    else await fail('supervisor speech appeared in a member-scoped transcript', con);
+  } else {
+    const enterDeadline = Date.now() + 45000;
+    let sawSupervisor = false;
+    while (Date.now() < enterDeadline) {
+      const text = await con.locator('.rm-scroll').innerText().catch(() => '');
+      if (SUPERVISOR_WORDS.test(text)) { sawSupervisor = true; break; }
+      await con.waitForTimeout(2000);
+    }
+    if (sawSupervisor) pass('supervisor speech in room mix after barge-in');
+    else await fail('supervisor speech never appeared after Enter Room', con);
   }
-  if (sawSupervisor) pass('supervisor speech in room mix after barge-in');
-  else await fail('supervisor speech never appeared after Enter Room', con);
 
   step('8. Leave room → idle');
   await con.getByRole('button', { name: 'Leave room' }).click();

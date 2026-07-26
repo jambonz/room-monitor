@@ -35,7 +35,15 @@ export class Transcriber {
 
   constructor(
     private readonly apiKey: string,
-    private readonly opts: { sampleRate: number; channels?: number },
+    private readonly opts: {
+      sampleRate: number;
+      channels?: number;
+      /** Fixed speaker label for this stream (a member-scoped fork: the
+       *  participant's identity is known, so diarization is off and every
+       *  fragment carries this label). Unset = the mix stream: diarize and
+       *  label fragments "Speaker N" (best-effort — see docs/DIARIZATION.md). */
+      label?: string;
+    },
     private readonly onFragment: (f: TranscriptFragment) => void
   ) {
     this.connect();
@@ -47,7 +55,7 @@ export class Transcriber {
       sample_rate: String(this.opts.sampleRate),
       channels: String(this.opts.channels ?? 1),
       model: 'nova-3-general',
-      diarize: 'true',
+      diarize: this.opts.label ? 'false' : 'true',
       punctuate: 'true',
       interim_results: 'false',
       smart_format: 'true',
@@ -95,6 +103,13 @@ export class Transcriber {
     if (!msg.is_final) return;
     const alt = msg.channel?.alternatives?.[0];
     if (!alt || !alt.transcript) return;
+
+    // A member-scoped stream has one known speaker — no grouping needed.
+    if (this.opts.label) {
+      this.fragmentsOut++;
+      this.onFragment({ speaker: this.opts.label, text: alt.transcript });
+      return;
+    }
 
     // Group consecutive words by diarized speaker into separate lines.
     const words = alt.words ?? [];

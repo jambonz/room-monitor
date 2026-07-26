@@ -139,38 +139,60 @@ function handleSupervisorCall(session: Session): void {
 }
 
 function handleForkAudio(stream: AudioStream): void {
-  // MediaJam sends OUR listen-request metadata verbatim as the fork's first
-  // text frame, so don't assume the standard jambonz listen fields (callSid,
-  // sampleRate, …) are present. Log the full frame so integration can confirm
-  // the real shape, and configure from our own self-describing metadata.
-  const meta = stream.metadata as { sessionId?: string; roomName?: string; sampleRate?: number };
+  // Two stream flavors arrive here, distinguished by their first text frame:
+  //   - member fork (scope=members): mediajam merges the member's identity
+  //     ({room, memberId, callSid, tag, …}) over OUR request metadata
+  //     ({sessionId, roomName, sampleRate}) — one stream per participant.
+  //   - mix fork (fallback): our request metadata verbatim, one stream.
+  const meta = stream.metadata as {
+    sessionId?: string;
+    roomName?: string;
+    room?: string;
+    callSid?: string;
+    memberId?: number;
+    tag?: string;
+    sampleRate?: number;
+  };
   logger.info({ metadata: stream.metadata }, 'fork audio connected — initial metadata frame');
 
+  const roomName = meta.roomName ?? meta.room;
   const sup =
     (meta.sessionId ? sessionManager.get(meta.sessionId) : undefined) ??
-    (meta.roomName ? sessionManager.findTranscribing(meta.roomName) : undefined);
-  if (!sup || !meta.roomName) {
+    (roomName ? sessionManager.findTranscribing(roomName) : undefined);
+  if (!sup || !roomName) {
     logger.warn({ meta }, 'fork audio without a matching session/room — disconnecting');
     stream.disconnect();
     return;
   }
 
+  // The supervisor's own monitoring leg is a room member too — but its speech
+  // (including private coaching) does not belong in the room transcript, same
+  // as the mix fork never carried coached audio.
+  if (meta.callSid && meta.tag === 'supervisor') {
+    stream.disconnect();
+    return;
+  }
+
   const sampleRate = meta.sampleRate ?? stream.sampleRate ?? FORK_SAMPLE_RATE;
-  const transcriber = sup.attachTranscriptionStream(meta.roomName, sampleRate);
+  const transcriber = meta.callSid
+    ? sup.attachMemberStream(roomName, sampleRate, meta.callSid, meta.tag ?? '')
+    : sup.attachTranscriptionStream(roomName, sampleRate);
+  const streamId = meta.callSid ?? 'mix';
   stream.on('audio', (pcm: Buffer) => transcriber.write(pcm));
   // pipeline observability: fork bytes in → deepgram results → fragments out
   const summary = setInterval(() => {
     logger.info(
-      { roomName: meta.roomName, bytesIn: transcriber.bytesIn, peak: transcriber.takePeak(), resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
+      { roomName, streamId, bytesIn: transcriber.bytesIn, peak: transcriber.takePeak(), resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
       'fork pipeline'
     );
   }, 5000);
   stream.on('close', () => {
     clearInterval(summary);
     logger.info(
-      { roomName: meta.roomName, bytesIn: transcriber.bytesIn, resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
+      { roomName, streamId, bytesIn: transcriber.bytesIn, resultsIn: transcriber.resultsIn, fragmentsOut: transcriber.fragmentsOut },
       'fork closed'
     );
-    transcriber.close();
+    if (meta.callSid) sup.detachMemberStream(meta.callSid);
+    else transcriber.close();
   });
 }

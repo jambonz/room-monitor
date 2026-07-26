@@ -32,7 +32,11 @@ export class SupervisorSession {
   /** jambonz call_sid of the supervisor's media leg, once it lands (set by the ws app). */
   supervisorCallSid: string | null = null;
 
-  private transcriber: Transcriber | null = null;
+  /** Live transcribers: one per member stream (keyed by callSid) with
+   *  scope=members, or a single 'mix' entry on the diarized fallback. */
+  private transcribers = new Map<string, Transcriber>();
+  /** Which fork scope is running for the transcript (for teardown). */
+  private transcriptScope: 'members' | 'mix' | null = null;
   private rooms: Room[] = [];
   private pollTimer: NodeJS.Timeout | null = null;
 
@@ -168,7 +172,10 @@ export class SupervisorSession {
     }
   }
 
-  /** Turn the per-room transcription tap on/off. */
+  /** Turn the per-room transcription tap on/off. Prefers member-scoped forks
+   *  (one identity-tagged stream per participant → real names, no diarization);
+   *  falls back to the whole-room mix with best-effort diarization on
+   *  deployments without member-fork support (see docs/DIARIZATION.md). */
   async setTranscript(on: boolean): Promise<void> {
     const roomId = this.selectedRoomId;
     if (!this.rest || !roomId) return;
@@ -176,49 +183,88 @@ export class SupervisorSession {
     this.transcriptOn = on;
 
     if (on) {
-      const botMemberId = await this.rest.startConferenceListen(roomId, {
+      const common = {
         url: config.forkSink.url,
         sampleRate: FORK_SAMPLE_RATE,
         ...(config.forkSink.username
           ? { wsAuth: { username: config.forkSink.username, password: config.forkSink.password ?? '' } }
           : {}),
-        // MediaJam delivers this verbatim as the fork's first text frame, so the
-        // sink can identify and configure itself from it alone.
+      };
+      let started = await this.rest.startConferenceListen(roomId, {
+        ...common,
+        scope: 'members',
+        // merged (member identity over it) into each stream's first text frame
         metadata: { sessionId: this.id, roomName: roomId, sampleRate: FORK_SAMPLE_RATE },
       });
-      if (botMemberId === null) {
+      if (started.ok) {
+        this.transcriptScope = 'members';
+      } else if (started.unsupported) {
+        logger.info({ roomId }, 'member-scoped forks unsupported here — falling back to mix + diarization');
+        started = await this.rest.startConferenceListen(roomId, {
+          ...common,
+          // MediaJam delivers this verbatim as the mix fork's first text frame
+          metadata: { sessionId: this.id, roomName: roomId, sampleRate: FORK_SAMPLE_RATE },
+        });
+        if (started.ok) this.transcriptScope = 'mix';
+      }
+      if (!started.ok) {
         // fork failed to start — revert so the UI toggle doesn't lie
         this.transcriptOn = false;
         this.send({ type: 'transcriptState', roomId, on: false });
         return;
       }
     } else {
-      await this.rest.stopConferenceListen(roomId);
-      this.stopTranscriber();
+      await this.rest.stopConferenceListen(roomId, this.transcriptScope ?? 'mix');
+      this.stopTranscribers();
     }
     this.send({ type: 'transcriptState', roomId, on });
   }
 
-  /** Wire the fork audio stream (from the ws app) into a Deepgram transcriber. */
-  attachTranscriptionStream(roomName: string, sampleRate: number): Transcriber {
-    this.stopTranscriber();
-    this.transcriber = new Transcriber(config.deepgramApiKey, { sampleRate }, (frag) => {
-      const room = this.room(roomName);
-      const line: TranscriptLine = {
-        speaker: frag.speaker,
-        text: frag.text,
-        tsMs: (room?.durationSec ?? 0) * 1000,
-      };
-      this.send({ type: 'transcript', roomId: roomName, line });
-    });
-    return this.transcriber;
+  /** Speaker label for a member stream: the participant's caller-id/username
+   *  from the live room listing, falling back to the leg's coach/whisper tag
+   *  or call sid. */
+  private labelForCall(roomName: string, callSid: string, tag: string): string {
+    const p = this.room(roomName)?.participants.find((pp) => pp.call_sid === callSid);
+    if (p?.label) return p.isAgent ? `${p.label} (agent)` : p.label;
+    return tag || callSid.slice(0, 8);
   }
 
-  private stopTranscriber(): void {
-    if (this.transcriber) {
-      this.transcriber.close();
-      this.transcriber = null;
-    }
+  private emitFragment(roomName: string, speaker: string, text: string): void {
+    const room = this.room(roomName);
+    const line: TranscriptLine = { speaker, text, tsMs: (room?.durationSec ?? 0) * 1000 };
+    this.send({ type: 'transcript', roomId: roomName, line });
+  }
+
+  /** Wire one member's fork stream into its own transcriber (no diarization —
+   *  the stream's speaker is known). Keyed by callSid; a reconnect replaces. */
+  attachMemberStream(roomName: string, sampleRate: number, callSid: string, tag: string): Transcriber {
+    this.transcribers.get(callSid)?.close();
+    const label = this.labelForCall(roomName, callSid, tag);
+    const t = new Transcriber(config.deepgramApiKey, { sampleRate, label }, (frag) =>
+      this.emitFragment(roomName, frag.speaker, frag.text));
+    this.transcribers.set(callSid, t);
+    return t;
+  }
+
+  /** A member stream's fork closed (leg left / policy stopped). */
+  detachMemberStream(callSid: string): void {
+    this.transcribers.get(callSid)?.close();
+    this.transcribers.delete(callSid);
+  }
+
+  /** Wire the whole-room mix fork into a diarizing transcriber (fallback). */
+  attachTranscriptionStream(roomName: string, sampleRate: number): Transcriber {
+    this.stopTranscribers();
+    const t = new Transcriber(config.deepgramApiKey, { sampleRate }, (frag) =>
+      this.emitFragment(roomName, frag.speaker, frag.text));
+    this.transcribers.set('mix', t);
+    return t;
+  }
+
+  private stopTranscribers(): void {
+    for (const t of this.transcribers.values()) t.close();
+    this.transcribers.clear();
+    this.transcriptScope = null;
   }
 
   /** Tear everything down (data-WS closed / sign out). */
@@ -226,13 +272,13 @@ export class SupervisorSession {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = null;
     if (this.transcriptOn && this.selectedRoomId && this.rest) {
-      // best-effort: if this fails the conf-bot keeps streaming until the room
-      // ends (MediaJam reaps it then) — surface it rather than hide it
-      await this.rest.stopConferenceListen(this.selectedRoomId).catch((err) => {
+      // best-effort: if this fails the fork(s) keep streaming until the room
+      // ends (MediaJam reaps them then) — surface it rather than hide it
+      await this.rest.stopConferenceListen(this.selectedRoomId, this.transcriptScope ?? 'mix').catch((err) => {
         logger.warn({ err, roomId: this.selectedRoomId }, 'dispose: failed to stop conference listen fork');
       });
     }
-    this.stopTranscriber();
+    this.stopTranscribers();
     this.rest = null;
   }
 }

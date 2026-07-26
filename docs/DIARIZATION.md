@@ -1,5 +1,15 @@
 # Transcript speaker labels: measured limits and the path forward
 
+> **Update (2026-07-26): the path forward shipped.** The media server now
+> supports member-scoped listen forks (`scope: "members"` on the
+> conference-listen API): one identity-tagged, rx-only stream per participant.
+> This app uses them by default — transcript lines carry real participant
+> labels ("agent1 (agent)", the caller's number) with **no diarization** — and
+> falls back to the mix + diarization described below on deployments without
+> member-fork support. Platform PRs: mediajam#80, mrf#13, feature-server#152,
+> api-server#69. The measurements below explain why the mix approach was
+> abandoned as the default.
+
 ## TL;DR
 
 Speaker diarization on the conference-mix transcript is **best-effort, not

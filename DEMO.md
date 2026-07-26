@@ -128,11 +128,14 @@ SBC=<sbc-host> APP_SID=<application-sid> WAV=speech.wav \
    no re-dial.
 5. **Enter Room** — click Enter Room: everyone hears you (barge-in). Then
    Leave room → back to idle.
-6. **Transcript** — toggle LIVE TRANSCRIPT on. Speaker-labelled lines appear
-   (diarized room mix via a MediaJam conf-bot → Deepgram — jambonz only
-   transports audio; the STT is the app's). Toggle off; switch rooms — the tap
-   stops automatically. Note transcription works with the supervisor fully
-   idle: it's independent of listening.
+6. **Transcript** — toggle LIVE TRANSCRIPT on. Lines appear labelled with each
+   participant's real identity ("agent1 (agent)", the caller's number): one
+   member-scoped listen fork per participant (`scope: members`), no
+   diarization. On deployments without member-fork support the app falls back
+   to the diarized room mix ("Speaker N" — best-effort, see
+   docs/DIARIZATION.md). jambonz only transports audio; the STT is the app's.
+   Toggle off; switch rooms — the taps stop automatically. Note transcription
+   works with the supervisor fully idle: it's independent of listening.
 7. **Coach fallback** — while coaching, have the agent tab Leave. Within a
    poll (~2s) the console falls back to Listen and the Coach button disappears.
 8. **Teardown** — hang up the phone tabs; the room disappears from the rail;

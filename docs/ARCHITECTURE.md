@@ -27,7 +27,7 @@ real jambonz back end.
 | **Listen** (`monitor`) | supervisor leg joined **muted** — hears the mix, heard by no one. |
 | **Coach** (`coach`) | `conferenceParticipantAction { action: "coach", tag: "agent" }` + unmute → supervisor audio heard **only by agents**. Gated on agent presence. |
 | **Enter Room** (`enter`) | `conferenceParticipantAction { action: "uncoach" }` + unmute → heard by everyone. |
-| **Transcript** | a **conference-level listen-fork** (MediaJam conf-bot) streaming the room mix to the backend, which runs diarized STT. Independent of the supervisor's leg. |
+| **Transcript** | **member-scoped listen forks** (`scope: members`): one identity-tagged stream per participant, each transcribed with its known speaker — real labels, no diarization. Falls back to the whole-room mix fork + diarized STT where member forks are unsupported. Independent of the supervisor's leg. |
 
 The three monitoring modes are **one supervisor leg** whose participant-action
 changes — switching modes is a mid-call command, never a re-dial.
@@ -96,9 +96,13 @@ MediaJam ──L16 PCM (room mix)──▶ Room Monitor WS sink ──▶ Deepgr
 - **Lifecycle** (all backend-driven): transcript toggled **on** → start the fork;
   transcript **off**, **switch room**, or **logout/disconnect** → stop the fork.
   Room ends on its own → MediaJam reaps the conf-bot.
-- **Diarization** runs on the mono room mix, so speaker labels are vendor-diarized
-  (`speaker N`) with best-effort mapping to participants. The design's coloured
-  speaker labels degrade gracefully to generic speaker labels.
+- **Speaker labels**: with member-scoped forks each stream's first metadata
+  frame identifies its participant (`callSid`, `tag`), and the backend resolves
+  it to the live listing's label — "agent1 (agent)", the caller's number. The
+  supervisor's own leg is never transcribed (so private coaching stays out of
+  the transcript by construction). On the mix fallback, labels are
+  vendor-diarized `Speaker N` — best-effort only; see docs/DIARIZATION.md for
+  the measurements.
 
 ---
 
@@ -121,8 +125,9 @@ MediaJam ──L16 PCM (room mix)──▶ Room Monitor WS sink ──▶ Deepgr
      call, joins it to the conference, captures `call_sid`, drives mode changes.
   2. **`@jambonz/sdk` REST client** — room discovery (enriched `/Conferences`),
      mode changes (fallback), and the conference listen-fork start/stop.
-  3. **WS sink + Deepgram** — receives the room-mix PCM fork and runs diarized
-     STT.
+  3. **WS sink + Deepgram** — receives the per-member PCM forks (one Deepgram
+     session per participant, labels from the room listing) or, on fallback,
+     the room-mix fork with diarized STT.
   4. **Data WS server** — fans room list + transcript + state to the frontend.
 
 ### Shared — `packages/shared`

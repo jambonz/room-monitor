@@ -9,12 +9,19 @@ export interface JambonzCreds {
 }
 
 export interface ListenForkOptions {
-  /** ws(s):// URL MediaJam should stream the room mix to (our fork sink). */
+  /** ws(s):// URL MediaJam should stream the audio to (our fork sink). */
   url: string;
+  /** 'mix' (whole-room fork, one stream) or 'members' (one identity-tagged
+   *  stream per participant — per-speaker transcripts without diarization). */
+  scope?: 'mix' | 'members';
   sampleRate?: number;
   wsAuth?: { username: string; password: string };
   metadata?: Record<string, unknown>;
 }
+
+export type ListenStartResult =
+  | { ok: true; scope: 'mix' | 'members' }
+  | { ok: false; unsupported: boolean };
 
 /**
  * Thin REST client for the jambonz API, scoped to one account. Uses the supplied
@@ -85,22 +92,24 @@ export class JambonzRest {
     return (await res.json()) as Room[];
   }
 
-  /** Start a conference listen fork; returns the bot member id (for stop). */
-  async startConferenceListen(roomName: string, opts: ListenForkOptions): Promise<number | null> {
+  /** Start a conference listen fork. `unsupported` distinguishes "this
+   *  deployment doesn't know the members scope" (400/501 — caller can fall
+   *  back to the mix scope) from other failures. */
+  async startConferenceListen(roomName: string, opts: ListenForkOptions): Promise<ListenStartResult> {
     const res = await this.req('POST', `/Conferences/${encodeURIComponent(roomName)}/listen`, opts);
     if (!res.ok) {
-      logger.warn({ roomName, status: res.status }, 'startConferenceListen failed');
-      return null;
+      logger.warn({ roomName, scope: opts.scope ?? 'mix', status: res.status }, 'startConferenceListen failed');
+      return { ok: false, unsupported: res.status === 400 || res.status === 501 };
     }
-    const body = (await res.json()) as { botMemberId?: number };
-    return body.botMemberId ?? null;
+    return { ok: true, scope: opts.scope ?? 'mix' };
   }
 
-  /** Stop the conference listen fork. */
-  async stopConferenceListen(roomName: string): Promise<void> {
-    const res = await this.req('DELETE', `/Conferences/${encodeURIComponent(roomName)}/listen`);
+  /** Stop the conference listen fork (of the given scope). */
+  async stopConferenceListen(roomName: string, scope: 'mix' | 'members' = 'mix'): Promise<void> {
+    const qs = scope === 'members' ? '?scope=members' : '';
+    const res = await this.req('DELETE', `/Conferences/${encodeURIComponent(roomName)}/listen${qs}`);
     if (!res.ok && res.status !== 204 && res.status !== 404) {
-      logger.warn({ roomName, status: res.status }, 'stopConferenceListen non-success');
+      logger.warn({ roomName, scope, status: res.status }, 'stopConferenceListen non-success');
     }
   }
 }

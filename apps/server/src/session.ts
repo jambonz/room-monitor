@@ -222,7 +222,9 @@ export class SupervisorSession {
 
   /** Speaker label for a member stream: the participant's caller-id/username
    *  from the live room listing, falling back to the leg's coach/whisper tag
-   *  or call sid. */
+   *  or call sid. Resolved per fragment, not at stream attach: a late joiner's
+   *  fork connects before the next room poll knows the participant, so the
+   *  label self-heals as soon as the listing catches up. */
   private labelForCall(roomName: string, callSid: string, tag: string): string {
     const p = this.room(roomName)?.participants.find((pp) => pp.call_sid === callSid);
     if (p?.label) return p.isAgent ? `${p.label} (agent)` : p.label;
@@ -236,12 +238,13 @@ export class SupervisorSession {
   }
 
   /** Wire one member's fork stream into its own transcriber (no diarization —
-   *  the stream's speaker is known). Keyed by callSid; a reconnect replaces. */
+   *  the stream's speaker is known). Keyed by callSid; a reconnect replaces.
+   *  The Transcriber's fixed label is a placeholder ('member'); the real label
+   *  is resolved fresh on every fragment via labelForCall. */
   attachMemberStream(roomName: string, sampleRate: number, callSid: string, tag: string): Transcriber {
     this.transcribers.get(callSid)?.close();
-    const label = this.labelForCall(roomName, callSid, tag);
-    const t = new Transcriber(config.deepgramApiKey, { sampleRate, label }, (frag) =>
-      this.emitFragment(roomName, frag.speaker, frag.text));
+    const t = new Transcriber(config.deepgramApiKey, { sampleRate, label: 'member' }, (frag) =>
+      this.emitFragment(roomName, this.labelForCall(roomName, callSid, tag), frag.text));
     this.transcribers.set(callSid, t);
     return t;
   }

@@ -1,22 +1,30 @@
 import WebSocket from 'ws';
 import { logger } from './logger.js';
 
-/** A diarized transcript fragment from the room mix. */
+/** A transcript fragment from one audio stream. */
 export interface TranscriptFragment {
-  /** Diarized speaker label, e.g. "Speaker 1". */
+  /** Speaker label ("Speaker 1" diarized, or the stream's fixed label). */
   speaker: string;
   text: string;
+  /** Wall-clock ms when this speech STARTED. With per-member streams,
+   *  finals arrive when each utterance ENDS, so arrival order across streams
+   *  is not speech order — consumers must order by this instead. Derived from
+   *  Deepgram's stream-relative start + the stream's first-audio epoch (valid
+   *  because the fork paces silence continuously, so stream time ≈ wall time). */
+  startMs: number;
 }
 
 interface DeepgramWord {
   word: string;
   punctuated_word?: string;
   speaker?: number;
+  start?: number; // seconds, stream-relative
 }
 
 interface DeepgramResult {
   type?: string;
   is_final?: boolean;
+  start?: number; // seconds, stream-relative
   channel?: { alternatives?: Array<{ transcript?: string; words?: DeepgramWord[] }> };
 }
 
@@ -104,25 +112,35 @@ export class Transcriber {
     const alt = msg.channel?.alternatives?.[0];
     if (!alt || !alt.transcript) return;
 
+    // speech start: stream-relative seconds → wall-clock ms via the stream's
+    // first-audio epoch (0 fallback keeps lines usable if either is missing)
+    const startAt = (relSec: number | undefined): number =>
+      this.epochMs && relSec !== undefined ? this.epochMs + relSec * 1000 : Date.now();
+
     // A member-scoped stream has one known speaker — no grouping needed.
     if (this.opts.label) {
       this.fragmentsOut++;
-      this.onFragment({ speaker: this.opts.label, text: alt.transcript });
+      this.onFragment({
+        speaker: this.opts.label,
+        text: alt.transcript,
+        startMs: startAt(alt.words?.[0]?.start ?? msg.start),
+      });
       return;
     }
 
     // Group consecutive words by diarized speaker into separate lines.
     const words = alt.words ?? [];
     if (words.length === 0) {
-      this.onFragment({ speaker: 'Speaker', text: alt.transcript });
+      this.onFragment({ speaker: 'Speaker', text: alt.transcript, startMs: startAt(msg.start) });
       return;
     }
     let curSpeaker = words[0].speaker ?? 0;
+    let bufStart: number | undefined = words[0].start;
     let buf: string[] = [];
     const flush = () => {
       if (buf.length === 0) return;
       this.fragmentsOut++;
-      this.onFragment({ speaker: `Speaker ${curSpeaker + 1}`, text: buf.join(' ') });
+      this.onFragment({ speaker: `Speaker ${curSpeaker + 1}`, text: buf.join(' '), startMs: startAt(bufStart) });
       buf = [];
     };
     for (const w of words) {
@@ -130,14 +148,20 @@ export class Transcriber {
       if (sp !== curSpeaker) {
         flush();
         curSpeaker = sp;
+        bufStart = w.start;
       }
       buf.push(w.punctuated_word ?? w.word);
     }
     flush();
   }
 
+  /** Wall-clock ms when this stream's first audio was written — the epoch that
+   *  maps Deepgram's stream-relative timestamps to absolute time. */
+  private epochMs = 0;
+
   /** Feed a chunk of L16 PCM from the fork. */
   write(pcm: Buffer): void {
+    if (this.epochMs === 0) this.epochMs = Date.now();
     this.bytesIn += pcm.length;
     // silence detector: track the peak sample amplitude
     for (let i = 0; i + 1 < pcm.length; i += 2) {

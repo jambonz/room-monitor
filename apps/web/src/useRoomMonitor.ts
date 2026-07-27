@@ -166,8 +166,16 @@ export function useRoomMonitor(): RoomMonitor {
           break;
         case 'transcript':
           setState((s) => {
+            // Insert sorted by SPEECH-START time: with per-member streams each
+            // participant has its own STT session, and finals arrive when an
+            // utterance ENDS — a long utterance that started first can arrive
+            // after a short one that started later. Appending in arrival order
+            // shows lines out of order; tsMs (speech start) is the truth.
             const prev = s.transcriptsByRoom[msg.roomId] ?? [];
-            return { ...s, transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: [...prev, msg.line] } };
+            let i = prev.length;
+            while (i > 0 && prev[i - 1].tsMs > msg.line.tsMs) i--;
+            const next = [...prev.slice(0, i), msg.line, ...prev.slice(i)];
+            return { ...s, transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: next } };
           });
           break;
       }

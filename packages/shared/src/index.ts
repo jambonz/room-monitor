@@ -36,7 +36,12 @@ export interface TranscriptLine {
   /** Diarized speaker label (or participant label when mapped). */
   speaker: string;
   text: string;
-  /** Milliseconds since the room started, for the m:ss timestamp. */
+  /**
+   * Milliseconds since the room started, at the moment this speech STARTED
+   * (not when its transcript arrived). With one STT stream per participant,
+   * finals land when each utterance ends, so arrival order is not speech
+   * order — consumers must order lines by this, not by arrival.
+   */
   tsMs: number;
   /**
    * Set for supervisor-originated audio: "coach" = private to agents,

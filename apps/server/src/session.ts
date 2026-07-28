@@ -242,10 +242,28 @@ export class SupervisorSession {
    *  or call sid. Resolved per fragment, not at stream attach: a late joiner's
    *  fork connects before the next room poll knows the participant, so the
    *  label self-heals as soon as the listing catches up. */
+  /**
+   * Is this stream the supervisor's own leg?
+   *
+   * Identified by call_sid, which this session knows the moment its leg lands —
+   * NOT by the fork metadata's tag. The media server applies a member's
+   * conference tag with a separate command *after* the join, so a member that
+   * joins while transcription is already running is announced (and forked) with
+   * an empty tag; trusting it would leave the supervisor unrecognized exactly
+   * when they join a room whose transcript is already on. The tag is still
+   * honored when present, which covers a *different* supervisor's leg that was
+   * already tagged when our fork policy snapshotted the room.
+   */
+  private isSupervisorLeg(callSid: string, tagHint: string): boolean {
+    return tagHint === 'supervisor' || this.supervisorCallSid === callSid;
+  }
+
   private labelForCall(roomName: string, callSid: string, tag: string): string {
-    // Agents are labelled by ROLE — the stream's own conference tag says so, no
-    // lookup needed (and no dependence on the room poll having caught up).
+    if (this.isSupervisorLeg(callSid, tag)) return 'supervisor';
+    // Agents are labelled by ROLE. The stream's tag says so when it was set
+    // before the fork started; otherwise the room listing's memberTag does.
     if (tag === 'agent') return 'agent';
+    if (this.room(roomName)?.participants.find((pp) => pp.call_sid === callSid)?.isAgent) return 'agent';
     // Everyone else is labelled by their phone number: who called in (inbound)
     // or who we dialed (outbound). `number` comes from the enriched listing;
     // `label` is the older caller-id-or-number field, kept as a fallback for
@@ -280,6 +298,10 @@ export class SupervisorSession {
   ): void {
     const tsMs = Math.max(0, startMs - this.roomEpoch(roomName));
     const line: TranscriptLine = { speaker, text, tsMs, ...(channel ? { channel } : {}) };
+    // lagMs = speech start → line published: the end-to-end transcript latency
+    // (STT endpointing dominates it). Logged so "the transcript feels slow" can
+    // be measured per speaker instead of estimated.
+    logger.info({ roomName, speaker, lagMs: Date.now() - startMs, chars: text.length }, 'transcript line');
     this.send({ type: 'transcript', roomId: roomName, line });
   }
 
@@ -289,25 +311,26 @@ export class SupervisorSession {
    *  is resolved fresh on every fragment via labelForCall. */
   attachMemberStream(roomName: string, sampleRate: number, callSid: string, tag: string): Transcriber {
     this.transcribers.get(callSid)?.close();
-    const t = new Transcriber(config.deepgramApiKey, { sampleRate, label: 'member' }, (frag) =>
-      this.emitFragment(roomName, this.labelForCall(roomName, callSid, tag), frag.text, frag.startMs));
-    this.transcribers.set(callSid, t);
-    return t;
-  }
-
-  /**
-   * Wire the SUPERVISOR's own member stream. Labelled "supervisor" and marked
-   * channel 'enter' (the console renders those as heard-by-all), and gated so
-   * only barge-in speech ever reaches the STT engine — while coaching or
-   * monitoring silently the stream is paced with silence, so private coaching
-   * cannot appear in the room's transcript.
-   */
-  attachSupervisorStream(roomName: string, sampleRate: number, callSid: string): Transcriber {
-    this.transcribers.get(callSid)?.close();
     const t = new Transcriber(
       config.deepgramApiKey,
-      { sampleRate, label: 'supervisor', audioGate: () => this.supervisorAudible() },
-      (frag) => this.emitFragment(roomName, 'supervisor', frag.text, frag.startMs, 'enter')
+      {
+        sampleRate,
+        label: 'member',
+        // One uniform gate for every member stream, evaluated per audio chunk:
+        // open for participants, and for the supervisor's own leg only while
+        // they are audible to the room. Evaluating it live (rather than picking
+        // a gated/ungated stream at attach time) is what makes it correct when
+        // the leg's identity is only known after the stream starts.
+        audioGate: () => !this.isSupervisorLeg(callSid, tag) || this.supervisorAudible(),
+      },
+      (frag) =>
+        this.emitFragment(
+          roomName,
+          this.labelForCall(roomName, callSid, tag),
+          frag.text,
+          frag.startMs,
+          this.isSupervisorLeg(callSid, tag) ? 'enter' : undefined
+        )
     );
     this.transcribers.set(callSid, t);
     return t;

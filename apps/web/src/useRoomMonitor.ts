@@ -166,15 +166,24 @@ export function useRoomMonitor(): RoomMonitor {
           break;
         case 'transcript':
           setState((s) => {
-            // Insert sorted by SPEECH-START time: with per-member streams each
-            // participant has its own STT session, and finals arrive when an
-            // utterance ENDS — a long utterance that started first can arrive
-            // after a short one that started later. Appending in arrival order
-            // shows lines out of order; tsMs (speech start) is the truth.
             const prev = s.transcriptsByRoom[msg.roomId] ?? [];
-            let i = prev.length;
-            while (i > 0 && prev[i - 1].tsMs > msg.line.tsMs) i--;
-            const next = [...prev.slice(0, i), msg.line, ...prev.slice(i)];
+            // A line with an id we already hold REPLACES it in place: that is a
+            // still-being-spoken line firming up (interim → longer interim →
+            // final). Keeping its position avoids the text jumping around as it
+            // grows, even if the refined timestamp shifts slightly.
+            const at = msg.line.id ? prev.findIndex((l) => l.id === msg.line.id) : -1;
+            const next =
+              at >= 0
+                ? prev.map((l, i) => (i === at ? msg.line : l))
+                : // otherwise insert sorted by SPEECH-START time: each participant
+                  // has its own STT session and finals arrive when an utterance
+                  // ENDS, so a long utterance that started first can arrive after
+                  // a short one that started later. tsMs (speech start) is truth.
+                  (() => {
+                    let i = prev.length;
+                    while (i > 0 && prev[i - 1].tsMs > msg.line.tsMs) i--;
+                    return [...prev.slice(0, i), msg.line, ...prev.slice(i)];
+                  })();
             return { ...s, transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: next } };
           });
           break;

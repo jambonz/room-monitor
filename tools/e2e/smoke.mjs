@@ -92,6 +92,10 @@ const readRows = (page) =>
         time: spans[1]?.textContent?.trim() ?? '',
         note: spans[2]?.textContent?.trim() ?? '',
         text: inner?.children?.[1]?.textContent?.trim() ?? '',
+        // interim (still-being-spoken) lines render dimmed; ordering and label
+        // assertions look at settled lines so a mid-utterance row cannot flap
+        // the result
+        interim: (el.style?.opacity ?? '') !== '' && Number(el.style.opacity) < 1,
       };
     })
   ).catch(() => []);
@@ -224,11 +228,11 @@ try {
       const [m, sec] = r.time.split(':').map(Number);
       return (m || 0) * 60 + (sec || 0);
     });
-    let stamps = secs(rows);
+    let stamps = secs(rows.filter((r) => !r.interim));
     const orderDeadline = Date.now() + 60000;
     while (stamps.length < 5 && Date.now() < orderDeadline) {
       await con.waitForTimeout(3000);
-      stamps = secs(await readRows(con));
+      stamps = secs((await readRows(con)).filter((r) => !r.interim));
     }
     const firstDrop = stamps.findIndex((v, i) => i > 0 && v < stamps[i - 1]);
     if (stamps.length < 3) await fail(`too few transcript lines (${stamps.length}) to check ordering`, con);

@@ -292,16 +292,27 @@ export class SupervisorSession {
   private emitFragment(
     roomName: string,
     speaker: string,
-    text: string,
-    startMs: number,
+    frag: { text: string; startMs: number; id: string; interim: boolean },
+    streamKey: string,
     channel?: 'coach' | 'enter'
   ): void {
-    const tsMs = Math.max(0, startMs - this.roomEpoch(roomName));
-    const line: TranscriptLine = { speaker, text, tsMs, ...(channel ? { channel } : {}) };
-    // lagMs = speech start → line published: the end-to-end transcript latency
-    // (STT endpointing dominates it). Logged so "the transcript feels slow" can
-    // be measured per speaker instead of estimated.
-    logger.info({ roomName, speaker, lagMs: Date.now() - startMs, chars: text.length }, 'transcript line');
+    const tsMs = Math.max(0, frag.startMs - this.roomEpoch(roomName));
+    const line: TranscriptLine = {
+      speaker,
+      text: frag.text,
+      tsMs,
+      // namespaced per stream so two speakers' utterances can never collide;
+      // interim updates and the final share it, so the console replaces in place
+      id: `${streamKey}:${frag.id}`,
+      ...(frag.interim ? { interim: true } : {}),
+      ...(channel ? { channel } : {}),
+    };
+    // lagMs = speech start → line published. Only finals are timed: an interim
+    // is published mid-utterance, so its "lag" would measure the words spoken
+    // so far, not the pipeline.
+    if (!frag.interim) {
+      logger.info({ roomName, speaker, lagMs: Date.now() - frag.startMs, chars: frag.text.length }, 'transcript line');
+    }
     this.send({ type: 'transcript', roomId: roomName, line });
   }
 
@@ -327,8 +338,8 @@ export class SupervisorSession {
         this.emitFragment(
           roomName,
           this.labelForCall(roomName, callSid, tag),
-          frag.text,
-          frag.startMs,
+          frag,
+          callSid,
           this.isSupervisorLeg(callSid, tag) ? 'enter' : undefined
         )
     );
@@ -346,7 +357,7 @@ export class SupervisorSession {
   attachTranscriptionStream(roomName: string, sampleRate: number): Transcriber {
     this.stopTranscribers();
     const t = new Transcriber(config.deepgramApiKey, { sampleRate }, (frag) =>
-      this.emitFragment(roomName, frag.speaker, frag.text, frag.startMs));
+      this.emitFragment(roomName, frag.speaker, frag, 'mix'));
     this.transcribers.set('mix', t);
     return t;
   }

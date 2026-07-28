@@ -12,6 +12,11 @@ export interface TranscriptFragment {
    *  Deepgram's stream-relative start + the stream's first-audio epoch (valid
    *  because the fork paces silence continuously, so stream time ≈ wall time). */
   startMs: number;
+  /** Stable id for the utterance (stream-relative start): interim updates and
+   *  the eventual final all carry the same id, so a consumer replaces in place. */
+  id: string;
+  /** True while the utterance is still in progress (Deepgram interim result). */
+  interim: boolean;
 }
 
 interface DeepgramWord {
@@ -74,7 +79,13 @@ export class Transcriber {
       model: 'nova-3-general',
       diarize: this.opts.label ? 'false' : 'true',
       punctuate: 'true',
-      interim_results: 'false',
+      // Interim results let a line appear WHILE it is being spoken instead of
+      // after the utterance completes (finals wait on endpointing, which is
+      // most of the perceived transcript latency). Only useful on a
+      // single-speaker stream: on the diarized mix the speaker isn't known
+      // until the final carries per-word speaker ids, so interims are dropped
+      // there (see onMessage).
+      interim_results: 'true',
       smart_format: 'true',
     });
     const ws = new WebSocket(`${DEEPGRAM_URL}?${params.toString()}`, {
@@ -117,9 +128,12 @@ export class Transcriber {
       return;
     }
     this.resultsIn++;
-    if (!msg.is_final) return;
     const alt = msg.channel?.alternatives?.[0];
     if (!alt || !alt.transcript) return;
+    const interim = !msg.is_final;
+    // The mix stream's speaker only becomes known when the final arrives with
+    // per-word speaker ids, so its interims carry no usable attribution.
+    if (interim && !this.opts.label) return;
 
     // stream-relative seconds → wall-clock ms via the stream's first-audio
     // epoch (now() fallback keeps lines usable if either is missing)
@@ -129,18 +143,28 @@ export class Transcriber {
 
     // A member-scoped stream has one known speaker — no grouping needed.
     if (this.opts.label) {
-      this.fragmentsOut++;
+      if (!interim) this.fragmentsOut++;
+      const relStart = words[0]?.start ?? msg.start;
       this.onFragment({
         speaker: this.opts.label,
         text: alt.transcript,
-        startMs: at(words[0]?.start ?? msg.start),
+        startMs: at(relStart),
+        // every interim update and the final for one utterance share this id
+        id: `u${(relStart ?? 0).toFixed(2)}`,
+        interim,
       });
       return;
     }
 
     // Group consecutive words by diarized speaker into separate lines.
     if (words.length === 0) {
-      this.onFragment({ speaker: 'Speaker', text: alt.transcript, startMs: at(msg.start) });
+      this.onFragment({
+        speaker: 'Speaker',
+        text: alt.transcript,
+        startMs: at(msg.start),
+        id: `u${(msg.start ?? 0).toFixed(2)}`,
+        interim: false,
+      });
       return;
     }
     let curSpeaker = words[0].speaker ?? 0;
@@ -149,7 +173,13 @@ export class Transcriber {
     const flush = () => {
       if (buf.length === 0) return;
       this.fragmentsOut++;
-      this.onFragment({ speaker: `Speaker ${curSpeaker + 1}`, text: buf.join(' '), startMs: at(bufStart) });
+      this.onFragment({
+        speaker: `Speaker ${curSpeaker + 1}`,
+        text: buf.join(' '),
+        startMs: at(bufStart),
+        id: `u${(bufStart ?? 0).toFixed(2)}-s${curSpeaker}`,
+        interim: false,
+      });
       buf = [];
     };
     for (const w of words) {

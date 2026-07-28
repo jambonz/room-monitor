@@ -42,8 +42,10 @@ export function TranscriptList({ lines }: { lines: TranscriptLine[] }) {
         // the backend names the speaker ("supervisor", "agent", or a phone
         // number); the channel only drives the styling + heard-by note
         const speaker = ln.speaker;
+        // a line still being spoken: shown live, dimmed until it is final
+        const liveOpacity = ln.interim ? 0.55 : 1;
         return (
-          <div key={i} style={{ display: 'flex', gap: 12, padding: '9px 10px', margin: '2px 0', borderRadius: 10, background: rowBg }}>
+          <div key={ln.id ?? i} style={{ display: 'flex', gap: 12, padding: '9px 10px', margin: '2px 0', borderRadius: 10, background: rowBg, opacity: liveOpacity }}>
             <div style={{ width: 30, height: 30, flex: 'none', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-bold)', fontSize: '0.66rem', color: 'var(--white)', background: color }}>{tag}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>

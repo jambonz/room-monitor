@@ -48,6 +48,20 @@ export interface TranscriptLine {
   speaker: string;
   text: string;
   /**
+   * Stable id of the utterance this line belongs to, when the source can
+   * provide one. A line that arrives with an id already present REPLACES that
+   * line in place (same position) rather than being appended — this is how a
+   * live, still-being-spoken line firms up into its final wording.
+   */
+  id?: string;
+  /**
+   * True while this line is still being spoken: shown immediately (so the
+   * transcript keeps pace with the room) and superseded by the final version of
+   * the same id. Interim lines are never produced for the diarized mix stream,
+   * where the speaker is only known once the final arrives.
+   */
+  interim?: boolean;
+  /**
    * Milliseconds since the room started, at the moment this speech STARTED
    * (not when its transcript arrived). With one STT stream per participant,
    * finals land when each utterance ends, so arrival order is not speech

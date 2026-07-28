@@ -45,11 +45,7 @@ if (!BASE_URL || !ACCOUNT_SID || !API_KEY || !CLIENT_PASSWORD) {
 // loose on purpose: TTS → G.711 → 16k mix → Deepgram garbles somewhat
 const AGENT_WORDS = /billing|bill you|account|calling support|calling tier/i;
 const CALLER_WORDS = /charge|invoice|order number|four four|calling about/i;
-// "refund" only — the supervisor's script is "this is the supervisor speaking,
-// please offer the customer a full refund immediately", and supervisor lines are
-// now LABELLED "supervisor", so matching that word could not tell speech from
-// label.
-const SUPERVISOR_WORDS = /refund/i;
+const SUPERVISOR_WORDS = /refund|supervisor speaking/i;
 
 let failures = 0;
 const browsers = [];
@@ -80,6 +76,25 @@ async function launch(wav) {
   page.setDefaultTimeout(20000);
   return page;
 }
+
+/** The transcript pane as structured rows — speaker label, m:ss, heard-by note
+ *  and spoken text kept SEPARATE. Asserting on a flat innerText of the whole
+ *  pane cannot tell a speaker label from the words in a line (they share the
+ *  string), which would make label-vs-content checks depend on the two never
+ *  using the same vocabulary. */
+const readRows = (page) =>
+  page.$$eval('.rm-scroll > div', (els) =>
+    els.map((el) => {
+      const inner = el.children[1];
+      const spans = inner?.children?.[0] ? Array.from(inner.children[0].querySelectorAll('span')) : [];
+      return {
+        speaker: spans[0]?.textContent?.trim() ?? '',
+        time: spans[1]?.textContent?.trim() ?? '',
+        note: spans[2]?.textContent?.trim() ?? '',
+        text: inner?.children?.[1]?.textContent?.trim() ?? '',
+      };
+    })
+  ).catch(() => []);
 
 const visible = async (page, text, timeoutMs = 20000) => {
   await page.getByText(text, { exact: false }).first().waitFor({ state: 'visible', timeout: timeoutMs });
@@ -170,45 +185,50 @@ try {
   }
   if (sawParticipant) pass('participant speech transcribed — audio path verified');
   else await fail('no participant speech in transcript after 60s', con);
-  // Member-scoped forks (scope=members) label lines with real participant
-  // identities; the diarized mix fallback labels them "Speaker N". Both
-  // participants' lines take a few utterances to accumulate — wait for a
-  // conclusive read rather than sampling one instant.
+  // Labels and content are asserted on SEPARATE fields of each row (see
+  // readRows): agents are labelled by role, everyone else by number/identity,
+  // and the supervisor must not appear at all while coaching.
   let memberLabels = false;
   {
     const labelDeadline = Date.now() + 45000;
-    let text = '';
+    let rows = [];
     while (Date.now() < labelDeadline) {
-      text = await con.locator('.rm-scroll').innerText().catch(() => '');
-      if (/\bagent\b/.test(text) && /caller1|\+?\d{7,}/.test(text)) { memberLabels = true; break; }
-      if (/Speaker \d/.test(text)) break; // diarized fallback mode
+      rows = await readRows(con);
+      const speakers = new Set(rows.map((r) => r.speaker));
+      const others = [...speakers].filter((sp) => sp !== 'agent' && sp !== 'supervisor');
+      if (speakers.has('agent') && others.length > 0) { memberLabels = true; break; }
+      if ([...speakers].some((sp) => /^Speaker \d/.test(sp))) break; // diarized fallback
       await con.waitForTimeout(2000);
     }
-    if (memberLabels) pass('member labels: agent by role, participant by number/identity');
-    else if (/Speaker \d/.test(text)) pass('mix-fallback transcript: diarized Speaker labels');
-    else await fail('transcript lines carry neither member labels nor Speaker labels', con);
-    // supervisor is coaching: their speech should NOT be in the transcript
-    if (!SUPERVISOR_WORDS.test(text)) pass('coach privacy: supervisor speech absent from transcript');
-    else await fail('coach audio leaked into the transcript', con);
+    const speakers = [...new Set(rows.map((r) => r.speaker))];
+    if (memberLabels) pass(`member labels by role + identity (${speakers.join(', ')})`);
+    else if (speakers.some((sp) => /^Speaker \d/.test(sp))) pass('mix-fallback transcript: diarized Speaker labels');
+    else await fail(`transcript speakers are neither member labels nor Speaker N: ${JSON.stringify(speakers)}`, con);
+
+    // coach privacy, asserted two independent ways: no line is ATTRIBUTED to the
+    // supervisor, and no line's TEXT contains their scripted words
+    const supRows = rows.filter((r) => r.speaker === 'supervisor');
+    const supText = rows.filter((r) => SUPERVISOR_WORDS.test(r.text));
+    if (supRows.length === 0 && supText.length === 0) {
+      pass('coach privacy: no supervisor-attributed line, no supervisor words in any line');
+    } else {
+      await fail(
+        `coach audio leaked: ${supRows.length} supervisor-labelled, ${supText.length} with supervisor words`, con);
+    }
 
     // Rendered lines must read in speech order. Each participant has its own
     // STT stream and finals arrive when an utterance ENDS, so appending in
     // arrival order interleaves them wrongly; lines carry speech-START times
     // and the UI insert-sorts on them. The displayed m:ss must be monotonic.
-    const readStamps = async () => {
-      const t = await con.locator('.rm-scroll').innerText().catch(() => '');
-      return (t.match(/\b\d+:\d\d\b/g) ?? []).map((s) => {
-        const [m, sec] = s.split(':').map(Number);
-        return m * 60 + sec;
-      });
-    };
-    // let enough lines accumulate for the check to mean something (each
-    // participant speaks in ~7s turns, so a handful of lines takes a moment)
-    let stamps = await readStamps();
+    const secs = (rs) => rs.map((r) => {
+      const [m, sec] = r.time.split(':').map(Number);
+      return (m || 0) * 60 + (sec || 0);
+    });
+    let stamps = secs(rows);
     const orderDeadline = Date.now() + 60000;
     while (stamps.length < 5 && Date.now() < orderDeadline) {
       await con.waitForTimeout(3000);
-      stamps = await readStamps();
+      stamps = secs(await readRows(con));
     }
     const firstDrop = stamps.findIndex((v, i) => i > 0 && v < stamps[i - 1]);
     if (stamps.length < 3) await fail(`too few transcript lines (${stamps.length}) to check ordering`, con);
@@ -221,20 +241,24 @@ try {
   await visible(con, 'everyone can hear you', 15000);
   pass('entered room');
   // The supervisor is now a full participant, so their speech SHOULD be
-  // transcribed — labelled "supervisor". This is the other half of the privacy
-  // gate asserted above: nothing while coaching, everything once barged in.
+  // transcribed — the other half of the gate asserted above. Again on the
+  // structured row: the line must be ATTRIBUTED to "supervisor" AND carry their
+  // scripted words, so neither check can be satisfied by the other's field.
   {
     const enterDeadline = Date.now() + 60000;
-    let sawSupervisor = false;
-    let text = '';
-    while (Date.now() < enterDeadline) {
-      text = await con.locator('.rm-scroll').innerText().catch(() => '');
-      if (SUPERVISOR_WORDS.test(text)) { sawSupervisor = true; break; }
-      await con.waitForTimeout(2000);
+    let hit = null;
+    while (Date.now() < enterDeadline && !hit) {
+      const rows = await readRows(con);
+      hit = rows.find((r) => r.speaker === 'supervisor' && SUPERVISOR_WORDS.test(r.text)) ?? null;
+      if (!hit) await con.waitForTimeout(2000);
     }
-    if (!sawSupervisor) await fail('supervisor speech never appeared after Enter Room', con);
-    else if (/supervisor/i.test(text)) pass('supervisor speech transcribed after barge-in, labelled "supervisor"');
-    else await fail('supervisor speech appeared but is not labelled "supervisor"', con);
+    if (hit) pass(`supervisor barge-in transcribed and attributed ("${hit.speaker}" · "${hit.note}")`);
+    else {
+      const rows = await readRows(con);
+      const sup = rows.filter((r) => r.speaker === 'supervisor').length;
+      const words = rows.filter((r) => SUPERVISOR_WORDS.test(r.text)).length;
+      await fail(`no supervisor line after barge-in (labelled: ${sup}, with words: ${words})`, con);
+    }
   }
 
   step('8. Leave room → idle');

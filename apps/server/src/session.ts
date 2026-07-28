@@ -363,6 +363,25 @@ export class SupervisorSession {
   async dispose(): Promise<void> {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = null;
+    // Hang up the supervisor's media leg. Without this it outlives the console
+    // session: the browser normally sends BYE, but not if the page was closed,
+    // the SIP socket was already dead, or the backend restarted — and then the
+    // leg sits in the conference indefinitely while a reconnected console shows
+    // "not connected" (no way to leave a room it no longer knows it is in).
+    // Injected over the leg's own ws session, so it reaches the owning
+    // feature-server on any topology.
+    if (this.supervisorCallSid) {
+      const leg = getSupervisorLeg(this.supervisorCallSid);
+      if (leg) {
+        try {
+          leg.hangup().send();
+          logger.info({ callSid: this.supervisorCallSid }, 'dispose: hung up the supervisor leg');
+        } catch (err) {
+          logger.warn({ err, callSid: this.supervisorCallSid }, 'dispose: failed to hang up the supervisor leg');
+        }
+      }
+      this.supervisorCallSid = null;
+    }
     if (this.transcriptOn && this.selectedRoomId && this.rest) {
       // best-effort: if this fails the fork(s) keep streaming until the room
       // ends (MediaJam reaps them then) — surface it rather than hide it

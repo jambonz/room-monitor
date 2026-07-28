@@ -94,6 +94,21 @@ export class SupervisorSession {
       }
       this.rooms = rooms;
       this.send({ type: 'rooms', rooms: this.rooms });
+      // Self-heal transcription across a room's lifetime. A conference is
+      // destroyed when its last member leaves, and its fork policy dies with it
+      // — but this session's transcriptOn survives, so when the room re-forms
+      // under the same name (everyone dropped and dialled back in, which is
+      // routine) the console would keep claiming "Transcribing" while nothing
+      // was being forked at all. If the room is present and we hold no live
+      // streams for it, re-issue the policy.
+      if (this.transcriptOn && this.selectedRoomId) {
+        const sel = this.room(this.selectedRoomId);
+        const graceOver = Date.now() - this.forksStartedAt > 10000;
+        if (sel && this.transcribers.size === 0 && graceOver) {
+          logger.info({ roomId: this.selectedRoomId }, 'transcript on but no live streams — restarting the fork policy');
+          await this.startForks(this.selectedRoomId, true);
+        }
+      }
       // Coach is gated on agent presence; if the supervisor is coaching and the
       // agents have left, fall back to listen.
       if (this.mode === 'coach' && this.supervisorCallSid) {
@@ -200,6 +215,42 @@ export class SupervisorSession {
     this.transcriptOn = on;
 
     if (on) {
+      const ok = await this.startForks(roomId);
+      if (!ok) {
+        // fork failed to start — revert so the UI toggle doesn't lie
+        this.transcriptOn = false;
+        this.send({ type: 'transcriptState', roomId, on: false });
+        return;
+      }
+    } else {
+      await this.rest.stopConferenceListen(roomId, this.transcriptScope ?? 'mix');
+      this.stopTranscribers();
+    }
+    this.send({ type: 'transcriptState', roomId, on });
+  }
+
+  /** When the fork policy was last (re)started, for the poll's self-heal grace. */
+  private forksStartedAt = 0;
+
+  /**
+   * Start the transcription fork policy for a room. Split out of setTranscript
+   * because it must also be re-issued when a room is destroyed and re-formed
+   * (see poll): the policy is room-scoped in the media server and dies with the
+   * room, while this session's transcriptOn state survives.
+   */
+  private async startForks(roomId: string, restarted = false): Promise<boolean> {
+    if (!this.rest) return false;
+    this.forksStartedAt = Date.now();
+    if (restarted) {
+      // A restart means we are attached to a DIFFERENT conference that happens
+      // to share the name. Its clock starts again, and the previous
+      // conversation is not part of this call — drop both. The frontend clears
+      // the room's lines when transcriptState arrives.
+      this.roomEpochs.delete(roomId);
+      this.stopTranscribers();
+      this.send({ type: 'transcriptState', roomId, on: true });
+    }
+    {
       // Clear any policy already running for this room before starting ours.
       // A member-forks policy is room-scoped in the media server and outlives
       // the console session that started it (a reload, a reconnect, or a
@@ -232,17 +283,8 @@ export class SupervisorSession {
         });
         if (started.ok) this.transcriptScope = 'mix';
       }
-      if (!started.ok) {
-        // fork failed to start — revert so the UI toggle doesn't lie
-        this.transcriptOn = false;
-        this.send({ type: 'transcriptState', roomId, on: false });
-        return;
-      }
-    } else {
-      await this.rest.stopConferenceListen(roomId, this.transcriptScope ?? 'mix');
-      this.stopTranscribers();
+      return started.ok;
     }
-    this.send({ type: 'transcriptState', roomId, on });
   }
 
   /** Speaker label for a member stream: the participant's caller-id/username

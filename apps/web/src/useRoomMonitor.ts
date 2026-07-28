@@ -150,11 +150,29 @@ export function useRoomMonitor(): RoomMonitor {
             selectedRef.current = autoSelect;
             sendWs({ type: 'select', roomId: autoSelect });
           }
-          setState((s) => ({
-            ...s,
-            rooms: msg.rooms,
-            ...(autoSelect ? { selectedRoomId: autoSelect } : {}),
-          }));
+          setState((s) => {
+            // A conference that emptied is destroyed and re-formed under the
+            // same name is a DIFFERENT call: its duration starts again. Rooms
+            // are keyed by name, so without this the new call inherits the
+            // previous conversation's transcript on screen.
+            const restarted = new Set<string>();
+            for (const r of msg.rooms) {
+              const was = s.rooms.find((p) => p.id === r.id);
+              if (was && r.durationSec + 2 < was.durationSec) restarted.add(r.id);
+            }
+            const transcripts = { ...s.transcriptsByRoom };
+            const live = { ...s.liveByRoom };
+            for (const id of restarted) {
+              transcripts[id] = [];
+              live[id] = [];
+            }
+            return {
+              ...s,
+              rooms: msg.rooms,
+              ...(autoSelect ? { selectedRoomId: autoSelect } : {}),
+              ...(restarted.size ? { transcriptsByRoom: transcripts, liveByRoom: live } : {}),
+            };
+          });
           break;
         }
         case 'supervisorState':

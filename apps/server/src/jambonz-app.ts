@@ -95,10 +95,21 @@ function handleDemoParticipant(session: Session): void {
 function handleSupervisorCall(session: Session): void {
   const sessionId = header(session, 'X-Session-Id');
   const roomName = header(session, 'X-Room');
-  const sup = sessionId ? sessionManager.get(sessionId) : undefined;
+  let sup = sessionId ? sessionManager.get(sessionId) : undefined;
+
+  // A console that reconnected (or outlived a backend restart) can present a
+  // session id this process never issued. Rather than hang up the leg — which
+  // leaves the supervisor unable to engage at all until they reload — adopt a
+  // live session that has this room selected and no leg of its own.
+  if (!sup && roomName) {
+    sup = sessionManager.findAdoptable(roomName);
+    if (sup) {
+      logger.info({ staleSessionId: sessionId, adoptedBy: sup.id, roomName }, 'adopted supervisor call with a stale session id');
+    }
+  }
 
   if (!sup || !roomName) {
-    logger.warn({ sessionId, roomName }, 'supervisor call missing X-Session-Id / X-Room');
+    logger.warn({ sessionId, roomName }, 'supervisor call: no session to attach it to');
     session.hangup().send();
     return;
   }

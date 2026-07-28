@@ -200,6 +200,14 @@ export class SupervisorSession {
     this.transcriptOn = on;
 
     if (on) {
+      // Clear any policy already running for this room before starting ours.
+      // A member-forks policy is room-scoped in the media server and outlives
+      // the console session that started it (a reload, a reconnect, or a
+      // backend restart leaves it running). Its forks are stamped with the
+      // ORIGINATING session's id, so inheriting one would deliver streams this
+      // session cannot resolve — and starting is idempotent, so without the
+      // stop we would inherit rather than replace it.
+      await this.rest.stopConferenceListen(roomId, 'members').catch(() => {});
       const common = {
         url: config.forkSink.url,
         sampleRate: FORK_SAMPLE_RATE,
@@ -424,6 +432,17 @@ export class SessionManager {
   findTranscribing(roomName: string): SupervisorSession | undefined {
     for (const s of this.sessions.values()) {
       if (s.transcriptOn && s.selectedRoomId === roomName) return s;
+    }
+    return undefined;
+  }
+
+  /** A live session that has this room selected but no media leg yet — used to
+   *  adopt a supervisor call whose X-Session-Id is stale (the console kept an
+   *  id from a previous backend process, e.g. across a restart), so a reconnect
+   *  heals itself instead of the leg being hung up on arrival. */
+  findAdoptable(roomName: string): SupervisorSession | undefined {
+    for (const s of this.sessions.values()) {
+      if (s.selectedRoomId === roomName && !s.supervisorCallSid) return s;
     }
     return undefined;
   }

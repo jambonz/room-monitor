@@ -30,6 +30,10 @@ export interface RoomMonitorState {
   engageError: string;
   transcriptOn: boolean;
   transcriptsByRoom: Record<string, TranscriptLine[]>;
+  /** In-progress (interim) lines per room, keyed off the settled transcript so
+   *  the record above never reflows: the console shows these in a live pane
+   *  anchored to the bottom, and each is removed the moment its final lands. */
+  liveByRoom: Record<string, TranscriptLine[]>;
   identity: { username: string; accountSid: string };
 }
 
@@ -53,6 +57,7 @@ export function useRoomMonitor(): RoomMonitor {
     engageError: '',
     transcriptOn: false,
     transcriptsByRoom: {},
+    liveByRoom: {},
     identity: { username: '', accountSid: '' },
   });
 
@@ -160,37 +165,78 @@ export function useRoomMonitor(): RoomMonitor {
         case 'transcriptState':
           setState((s) =>
             s.selectedRoomId === msg.roomId
-              ? { ...s, transcriptOn: msg.on, transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: [] } }
+              ? {
+                  ...s,
+                  transcriptOn: msg.on,
+                  transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: [] },
+                  liveByRoom: { ...s.liveByRoom, [msg.roomId]: [] },
+                }
               : s
           );
           break;
         case 'transcript':
           setState((s) => {
+            const live = s.liveByRoom[msg.roomId] ?? [];
+            if (msg.line.interim) {
+              // still being spoken: update this speaker's live row (or add it).
+              // The settled transcript is untouched, so nothing above reflows.
+              const at = live.findIndex((l) => l.id === msg.line.id);
+              const nextLive = at >= 0 ? live.map((l, i) => (i === at ? msg.line : l)) : [...live, msg.line];
+              return { ...s, liveByRoom: { ...s.liveByRoom, [msg.roomId]: nextLive } };
+            }
+            // final: drop the live row it came from and settle it into the record,
+            // inserted by SPEECH-START time — each participant has its own STT
+            // session and finals arrive when an utterance ENDS, so a long
+            // utterance that started first can arrive after a short one that
+            // started later. tsMs (speech start) is the truth.
             const prev = s.transcriptsByRoom[msg.roomId] ?? [];
-            // A line with an id we already hold REPLACES it in place: that is a
-            // still-being-spoken line firming up (interim → longer interim →
-            // final). Keeping its position avoids the text jumping around as it
-            // grows, even if the refined timestamp shifts slightly.
-            const at = msg.line.id ? prev.findIndex((l) => l.id === msg.line.id) : -1;
-            const next =
-              at >= 0
-                ? prev.map((l, i) => (i === at ? msg.line : l))
-                : // otherwise insert sorted by SPEECH-START time: each participant
-                  // has its own STT session and finals arrive when an utterance
-                  // ENDS, so a long utterance that started first can arrive after
-                  // a short one that started later. tsMs (speech start) is truth.
-                  (() => {
+            const dup = msg.line.id ? prev.findIndex((l) => l.id === msg.line.id) : -1;
+            const settled =
+              dup >= 0
+                ? prev.map((l, i) => (i === dup ? msg.line : l))
+                : (() => {
                     let i = prev.length;
                     while (i > 0 && prev[i - 1].tsMs > msg.line.tsMs) i--;
                     return [...prev.slice(0, i), msg.line, ...prev.slice(i)];
                   })();
-            return { ...s, transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: next } };
+            return {
+              ...s,
+              transcriptsByRoom: { ...s.transcriptsByRoom, [msg.roomId]: settled },
+              liveByRoom: { ...s.liveByRoom, [msg.roomId]: live.filter((l) => l.id !== msg.line.id) },
+            };
           });
           break;
       }
     },
     [sendWs]
   );
+
+  // An in-progress line whose final never arrives — the speaker dropped
+  // mid-sentence, or their stream died — would otherwise sit in the live pane
+  // forever. Sweep rows that have stopped being updated.
+  const liveSeenAt = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const now = Date.now();
+    for (const rows of Object.values(state.liveByRoom)) {
+      for (const l of rows) if (l.id) liveSeenAt.current.set(l.id, now);
+    }
+  }, [state.liveByRoom]);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const cutoff = Date.now() - 6000;
+      setState((s) => {
+        let changed = false;
+        const next: Record<string, TranscriptLine[]> = {};
+        for (const [roomId, rows] of Object.entries(s.liveByRoom)) {
+          const kept = rows.filter((l) => (liveSeenAt.current.get(l.id ?? '') ?? 0) > cutoff);
+          if (kept.length !== rows.length) changed = true;
+          next[roomId] = kept;
+        }
+        return changed ? { ...s, liveByRoom: next } : s;
+      });
+    }, 2000);
+    return () => clearInterval(t);
+  }, []);
 
   // ---- actions -------------------------------------------------------------
   const connect = useCallback(
@@ -225,7 +271,7 @@ export function useRoomMonitor(): RoomMonitor {
     appSid.current = '';
     creds.current = { username: '', password: '' };
     selectedRef.current = null;
-    setState((s) => ({ ...s, phase: 'login', mode: 'idle', modePending: false, engageError: '', transcriptOn: false, selectedRoomId: null, rooms: [], transcriptsByRoom: {} }));
+    setState((s) => ({ ...s, phase: 'login', mode: 'idle', modePending: false, engageError: '', transcriptOn: false, selectedRoomId: null, rooms: [], transcriptsByRoom: {}, liveByRoom: {} }));
   }, [hangupCall]);
 
   const selectRoom = useCallback(

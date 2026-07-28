@@ -2,7 +2,7 @@ import { Headphones, Mic, LogIn, LogOut, Users, Lock } from 'react-feather';
 import type { Room, SupervisorMode, TranscriptLine } from '@room-monitor/shared';
 import { agentCount, otherCount, coachAvailable } from '@room-monitor/shared';
 import { fmtDur, speakerColor } from '../format.js';
-import { TranscriptList, TranscriptOff } from './Transcript.js';
+import { TranscriptList, TranscriptOff, LiveTranscript } from './Transcript.js';
 import { MicPicker } from './MicPicker.js';
 
 const MODE_STATUS: Record<Exclude<SupervisorMode, 'idle'>, string> = {
@@ -67,6 +67,7 @@ export function RoomDetail({
   engageError,
   transcriptOn,
   lines,
+  liveLines,
   onSetMode,
   onStop,
   onToggleTranscript,
@@ -77,6 +78,7 @@ export function RoomDetail({
   engageError: string;
   transcriptOn: boolean;
   lines: TranscriptLine[];
+  liveLines: TranscriptLine[];
   onSetMode: (m: Exclude<SupervisorMode, 'idle'>) => void;
   onStop: () => void;
   onToggleTranscript: () => void;
@@ -194,7 +196,14 @@ export function RoomDetail({
         </button>
       </div>
 
-      {transcriptOn ? <TranscriptList lines={lines} /> : <TranscriptOff onTurnOn={onToggleTranscript} />}
+      {transcriptOn ? (
+        <>
+          <TranscriptList lines={lines} />
+          <LiveTranscript lines={liveLines} />
+        </>
+      ) : (
+        <TranscriptOff onTurnOn={onToggleTranscript} />
+      )}
 
       {(mode === 'coach' || mode === 'enter') && !modePending && <ModeBanner mode={mode} />}
     </div>

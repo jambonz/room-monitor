@@ -92,10 +92,9 @@ const readRows = (page) =>
         time: spans[1]?.textContent?.trim() ?? '',
         note: spans[2]?.textContent?.trim() ?? '',
         text: inner?.children?.[1]?.textContent?.trim() ?? '',
-        // interim (still-being-spoken) lines render dimmed; ordering and label
-        // assertions look at settled lines so a mid-utterance row cannot flap
-        // the result
-        interim: (el.style?.opacity ?? '') !== '' && Number(el.style.opacity) < 1,
+        // in-progress text lives in its own pane below (see LiveTranscript), so
+        // every row in this list is settled
+        interim: false,
       };
     })
   ).catch(() => []);

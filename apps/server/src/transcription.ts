@@ -143,16 +143,27 @@ export class Transcriber {
 
     // A member-scoped stream has one known speaker — no grouping needed.
     if (this.opts.label) {
-      if (!interim) this.fragmentsOut++;
-      const relStart = words[0]?.start ?? msg.start;
+      // One id per utterance, from a sequence counter — NOT from Deepgram's
+      // timestamps: those shift between interim updates of the same utterance,
+      // so a timestamp-derived id made every update a new line instead of
+      // replacing the previous one (grey interim lines piled up above the
+      // final). The counter advances only when an utterance finalizes, so all
+      // of its interims and its final share one id.
+      if (this.utteranceStartMs === 0) this.utteranceStartMs = at(words[0]?.start ?? msg.start);
       this.onFragment({
         speaker: this.opts.label,
         text: alt.transcript,
-        startMs: at(relStart),
-        // every interim update and the final for one utterance share this id
-        id: `u${(relStart ?? 0).toFixed(2)}`,
+        // the utterance keeps the position it first took, so a line firming up
+        // never jumps even if the refined timestamps move slightly
+        startMs: this.utteranceStartMs,
+        id: `u${this.utteranceSeq}`,
         interim,
       });
+      if (!interim) {
+        this.fragmentsOut++;
+        this.utteranceSeq++;
+        this.utteranceStartMs = 0;
+      }
       return;
     }
 
@@ -200,6 +211,12 @@ export class Transcriber {
 
   /** counts chunks replaced by silence because the content gate was closed */
   gatedChunks = 0;
+
+  /** utterance identity for a single-speaker stream: every interim update of the
+   *  utterance in flight, and its final, share this sequence number; the start
+   *  time is pinned at the first update so the line does not move as it grows. */
+  private utteranceSeq = 0;
+  private utteranceStartMs = 0;
 
   /** Feed a chunk of L16 PCM from the fork. */
   write(pcm: Buffer): void {

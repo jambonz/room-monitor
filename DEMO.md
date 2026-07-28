@@ -132,10 +132,12 @@ SBC=<sbc-host> APP_SID=<application-sid> WAV=speech.wav \
    no re-dial.
 5. **Enter Room** — click Enter Room: everyone hears you (barge-in). Then
    Leave room → back to idle.
-6. **Transcript** — toggle LIVE TRANSCRIPT on. Lines appear labelled with each
-   participant's real identity ("agent1 (agent)", the caller's number): one
-   member-scoped listen fork per participant (`scope: members`), no
-   diarization. On deployments without member-fork support the app falls back
+6. **Transcript** — toggle LIVE TRANSCRIPT on. Lines appear labelled by role or
+   number: **"agent"** for tagged agents, the **caller's phone number** for
+   everyone else, and **"supervisor"** for your own barge-in speech (nothing
+   while you coach — that is gated at the audio, so it never reaches the STT
+   engine). One member-scoped listen fork per participant (`scope: members`),
+   no diarization. On deployments without member-fork support the app falls back
    to the diarized room mix ("Speaker N" — best-effort, see
    docs/DIARIZATION.md). jambonz only transports audio; the STT is the app's.
    Toggle off; switch rooms — the taps stop automatically. Note transcription

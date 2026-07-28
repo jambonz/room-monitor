@@ -39,7 +39,9 @@ export function TranscriptList({ lines }: { lines: TranscriptLine[] }) {
         const note = supervisor ? (coach ? '🔒 private to agents' : 'live to all') : '';
         const rowBg = supervisor ? (coach ? '#f7f1fb' : 'var(--pink)') : 'transparent';
         const tag = supervisor ? 'SU' : initials(ln.speaker);
-        const speaker = supervisor ? 'You · Supervisor' : ln.speaker;
+        // the backend names the speaker ("supervisor", "agent", or a phone
+        // number); the channel only drives the styling + heard-by note
+        const speaker = ln.speaker;
         return (
           <div key={i} style={{ display: 'flex', gap: 12, padding: '9px 10px', margin: '2px 0', borderRadius: 10, background: rowBg }}>
             <div style={{ width: 30, height: 30, flex: 'none', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-bold)', fontSize: '0.66rem', color: 'var(--white)', background: color }}>{tag}</div>

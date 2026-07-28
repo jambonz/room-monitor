@@ -165,18 +165,16 @@ function handleForkAudio(stream: AudioStream): void {
     return;
   }
 
-  // The supervisor's own monitoring leg is a room member too — but its speech
-  // (including private coaching) does not belong in the room transcript, same
-  // as the mix fork never carried coached audio.
-  if (meta.callSid && meta.tag === 'supervisor') {
-    stream.disconnect();
-    return;
-  }
-
   const sampleRate = meta.sampleRate ?? stream.sampleRate ?? FORK_SAMPLE_RATE;
-  const transcriber = meta.callSid
-    ? sup.attachMemberStream(roomName, sampleRate, meta.callSid, meta.tag ?? '')
-    : sup.attachTranscriptionStream(roomName, sampleRate);
+  // The supervisor's own leg is a room member too, so it gets a member fork
+  // like everyone else — but it is transcribed only while they are a full
+  // participant (barge-in); see attachSupervisorStream for the gate.
+  const isSupervisor = meta.tag === 'supervisor';
+  const transcriber = !meta.callSid
+    ? sup.attachTranscriptionStream(roomName, sampleRate)
+    : isSupervisor
+      ? sup.attachSupervisorStream(roomName, sampleRate, meta.callSid)
+      : sup.attachMemberStream(roomName, sampleRate, meta.callSid, meta.tag ?? '');
   const streamId = meta.callSid ?? 'mix';
   stream.on('audio', (pcm: Buffer) => transcriber.write(pcm));
   // pipeline observability: fork bytes in → deepgram results → fragments out

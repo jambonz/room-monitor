@@ -45,7 +45,11 @@ if (!BASE_URL || !ACCOUNT_SID || !API_KEY || !CLIENT_PASSWORD) {
 // loose on purpose: TTS → G.711 → 16k mix → Deepgram garbles somewhat
 const AGENT_WORDS = /billing|bill you|account|calling support|calling tier/i;
 const CALLER_WORDS = /charge|invoice|order number|four four|calling about/i;
-const SUPERVISOR_WORDS = /refund|supervisor/i;
+// "refund" only — the supervisor's script is "this is the supervisor speaking,
+// please offer the customer a full refund immediately", and supervisor lines are
+// now LABELLED "supervisor", so matching that word could not tell speech from
+// label.
+const SUPERVISOR_WORDS = /refund/i;
 
 let failures = 0;
 const browsers = [];
@@ -176,11 +180,11 @@ try {
     let text = '';
     while (Date.now() < labelDeadline) {
       text = await con.locator('.rm-scroll').innerText().catch(() => '');
-      if (/agent1 \(agent\)/.test(text) && /caller1/.test(text)) { memberLabels = true; break; }
+      if (/\bagent\b/.test(text) && /caller1|\+?\d{7,}/.test(text)) { memberLabels = true; break; }
       if (/Speaker \d/.test(text)) break; // diarized fallback mode
       await con.waitForTimeout(2000);
     }
-    if (memberLabels) pass('member-scoped transcript: real participant labels (agent1/caller1)');
+    if (memberLabels) pass('member labels: agent by role, participant by number/identity');
     else if (/Speaker \d/.test(text)) pass('mix-fallback transcript: diarized Speaker labels');
     else await fail('transcript lines carry neither member labels nor Speaker labels', con);
     // supervisor is coaching: their speech should NOT be in the transcript
@@ -216,25 +220,21 @@ try {
   await con.getByRole('button', { name: 'Enter Room' }).click();
   await visible(con, 'everyone can hear you', 15000);
   pass('entered room');
-  if (memberLabels) {
-    // member forks carry only what each PARTICIPANT says — the supervisor's
-    // leg is never transcribed, so their speech stays absent even after
-    // barge-in (privacy by construction; uplink audibility is covered by the
-    // mediajam member-fork tests and the human walkthrough).
-    await con.waitForTimeout(15000);
-    const text = await con.locator('.rm-scroll').innerText().catch(() => '');
-    if (!SUPERVISOR_WORDS.test(text)) pass('member scope: supervisor leg never transcribed (by construction)');
-    else await fail('supervisor speech appeared in a member-scoped transcript', con);
-  } else {
-    const enterDeadline = Date.now() + 45000;
+  // The supervisor is now a full participant, so their speech SHOULD be
+  // transcribed — labelled "supervisor". This is the other half of the privacy
+  // gate asserted above: nothing while coaching, everything once barged in.
+  {
+    const enterDeadline = Date.now() + 60000;
     let sawSupervisor = false;
+    let text = '';
     while (Date.now() < enterDeadline) {
-      const text = await con.locator('.rm-scroll').innerText().catch(() => '');
+      text = await con.locator('.rm-scroll').innerText().catch(() => '');
       if (SUPERVISOR_WORDS.test(text)) { sawSupervisor = true; break; }
       await con.waitForTimeout(2000);
     }
-    if (sawSupervisor) pass('supervisor speech in room mix after barge-in');
-    else await fail('supervisor speech never appeared after Enter Room', con);
+    if (!sawSupervisor) await fail('supervisor speech never appeared after Enter Room', con);
+    else if (/supervisor/i.test(text)) pass('supervisor speech transcribed after barge-in, labelled "supervisor"');
+    else await fail('supervisor speech appeared but is not labelled "supervisor"', con);
   }
 
   step('8. Leave room → idle');

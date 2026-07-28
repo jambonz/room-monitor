@@ -51,6 +51,15 @@ export class Transcriber {
        *  fragment carries this label). Unset = the mix stream: diarize and
        *  label fragments "Speaker N" (best-effort — see docs/DIARIZATION.md). */
       label?: string;
+      /** Optional content gate: when it returns false, the stream is paced with
+       *  SILENCE instead of the real audio, so this speech never reaches the STT
+       *  engine at all. Used for the supervisor's stream, which must only be
+       *  transcribed while they are audible to the room (barge-in) — the media
+       *  server tees a member's audio before the mute check, so their mic
+       *  reaches us even while they monitor silently. Pacing with silence rather
+       *  than skipping keeps stream time aligned with wall time, which the
+       *  speech-start timestamps depend on. */
+      audioGate?: () => boolean;
     },
     private readonly onFragment: (f: TranscriptFragment) => void
   ) {
@@ -112,10 +121,11 @@ export class Transcriber {
     const alt = msg.channel?.alternatives?.[0];
     if (!alt || !alt.transcript) return;
 
-    // speech start: stream-relative seconds → wall-clock ms via the stream's
-    // first-audio epoch (0 fallback keeps lines usable if either is missing)
-    const startAt = (relSec: number | undefined): number =>
+    // stream-relative seconds → wall-clock ms via the stream's first-audio
+    // epoch (now() fallback keeps lines usable if either is missing)
+    const at = (relSec: number | undefined): number =>
       this.epochMs && relSec !== undefined ? this.epochMs + relSec * 1000 : Date.now();
+    const words = alt.words ?? [];
 
     // A member-scoped stream has one known speaker — no grouping needed.
     if (this.opts.label) {
@@ -123,15 +133,14 @@ export class Transcriber {
       this.onFragment({
         speaker: this.opts.label,
         text: alt.transcript,
-        startMs: startAt(alt.words?.[0]?.start ?? msg.start),
+        startMs: at(words[0]?.start ?? msg.start),
       });
       return;
     }
 
     // Group consecutive words by diarized speaker into separate lines.
-    const words = alt.words ?? [];
     if (words.length === 0) {
-      this.onFragment({ speaker: 'Speaker', text: alt.transcript, startMs: startAt(msg.start) });
+      this.onFragment({ speaker: 'Speaker', text: alt.transcript, startMs: at(msg.start) });
       return;
     }
     let curSpeaker = words[0].speaker ?? 0;
@@ -140,7 +149,7 @@ export class Transcriber {
     const flush = () => {
       if (buf.length === 0) return;
       this.fragmentsOut++;
-      this.onFragment({ speaker: `Speaker ${curSpeaker + 1}`, text: buf.join(' '), startMs: startAt(bufStart) });
+      this.onFragment({ speaker: `Speaker ${curSpeaker + 1}`, text: buf.join(' '), startMs: at(bufStart) });
       buf = [];
     };
     for (const w of words) {
@@ -159,9 +168,21 @@ export class Transcriber {
    *  maps Deepgram's stream-relative timestamps to absolute time. */
   private epochMs = 0;
 
+  /** counts chunks replaced by silence because the content gate was closed */
+  gatedChunks = 0;
+
   /** Feed a chunk of L16 PCM from the fork. */
   write(pcm: Buffer): void {
     if (this.epochMs === 0) this.epochMs = Date.now();
+    if (this.opts.audioGate && !this.opts.audioGate()) {
+      // paced silence: keeps the stream (and its clock) alive without ever
+      // letting this speech reach the STT engine
+      this.gatedChunks++;
+      const silence = Buffer.alloc(pcm.length);
+      this.bytesIn += silence.length;
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(silence);
+      return;
+    }
     this.bytesIn += pcm.length;
     // silence detector: track the peak sample amplitude
     for (let i = 0; i + 1 < pcm.length; i += 2) {

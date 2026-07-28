@@ -37,6 +37,23 @@ export class SupervisorSession {
   private transcribers = new Map<string, Transcriber>();
   /** Which fork scope is running for the transcript (for teardown). */
   private transcriptScope: 'members' | 'mix' | null = null;
+
+  /**
+   * True only while the supervisor is a full participant (barge-in), i.e. while
+   * what they say is audible to the whole room.
+   *
+   * This gates the supervisor's TRANSCRIPTION AUDIO, not its text, and that
+   * choice is deliberate: the media server tees a member's inbound frame
+   * before the mute check, so the supervisor's microphone reaches us even while
+   * they monitor silently. Gating the audio means coach whispers and idle
+   * chatter never reach the STT engine at all — privacy by construction, with
+   * no dependence on comparing STT timestamps against mode-change times (which
+   * would misattribute any utterance spanning a switch, in the unsafe
+   * direction, whenever the two clocks drifted).
+   */
+  private supervisorAudible(): boolean {
+    return this.mode === 'enter';
+  }
   private rooms: Room[] = [];
   private pollTimer: NodeJS.Timeout | null = null;
 
@@ -226,9 +243,15 @@ export class SupervisorSession {
    *  fork connects before the next room poll knows the participant, so the
    *  label self-heals as soon as the listing catches up. */
   private labelForCall(roomName: string, callSid: string, tag: string): string {
+    // Agents are labelled by ROLE — the stream's own conference tag says so, no
+    // lookup needed (and no dependence on the room poll having caught up).
+    if (tag === 'agent') return 'agent';
+    // Everyone else is labelled by their phone number: who called in (inbound)
+    // or who we dialed (outbound). `number` comes from the enriched listing;
+    // `label` is the older caller-id-or-number field, kept as a fallback for
+    // deployments without it and for webrtc clients (a SIP username).
     const p = this.room(roomName)?.participants.find((pp) => pp.call_sid === callSid);
-    if (p?.label) return p.isAgent ? `${p.label} (agent)` : p.label;
-    return tag || callSid.slice(0, 8);
+    return p?.number || p?.label || tag || callSid.slice(0, 8);
   }
 
   /** Stable per-room wall-clock start estimates, so every line's tsMs shares
@@ -248,9 +271,15 @@ export class SupervisorSession {
   /** Emit one transcript line. tsMs is the SPEECH-START time (ms since room
    *  start): with per-member streams, finals arrive when utterances END, so
    *  arrival order is not speech order — the frontend insert-sorts on tsMs. */
-  private emitFragment(roomName: string, speaker: string, text: string, startMs: number): void {
+  private emitFragment(
+    roomName: string,
+    speaker: string,
+    text: string,
+    startMs: number,
+    channel?: 'coach' | 'enter'
+  ): void {
     const tsMs = Math.max(0, startMs - this.roomEpoch(roomName));
-    const line: TranscriptLine = { speaker, text, tsMs };
+    const line: TranscriptLine = { speaker, text, tsMs, ...(channel ? { channel } : {}) };
     this.send({ type: 'transcript', roomId: roomName, line });
   }
 
@@ -262,6 +291,24 @@ export class SupervisorSession {
     this.transcribers.get(callSid)?.close();
     const t = new Transcriber(config.deepgramApiKey, { sampleRate, label: 'member' }, (frag) =>
       this.emitFragment(roomName, this.labelForCall(roomName, callSid, tag), frag.text, frag.startMs));
+    this.transcribers.set(callSid, t);
+    return t;
+  }
+
+  /**
+   * Wire the SUPERVISOR's own member stream. Labelled "supervisor" and marked
+   * channel 'enter' (the console renders those as heard-by-all), and gated so
+   * only barge-in speech ever reaches the STT engine — while coaching or
+   * monitoring silently the stream is paced with silence, so private coaching
+   * cannot appear in the room's transcript.
+   */
+  attachSupervisorStream(roomName: string, sampleRate: number, callSid: string): Transcriber {
+    this.transcribers.get(callSid)?.close();
+    const t = new Transcriber(
+      config.deepgramApiKey,
+      { sampleRate, label: 'supervisor', audioGate: () => this.supervisorAudible() },
+      (frag) => this.emitFragment(roomName, 'supervisor', frag.text, frag.startMs, 'enter')
+    );
     this.transcribers.set(callSid, t);
     return t;
   }

@@ -276,7 +276,49 @@ try {
   if (!coachGone) pass('Coach button hidden with no agents');
   else await fail('Coach still offered with zero agents', con);
 
-  step('10. transcript OFF + teardown');
+  step('10. room destroyed and re-formed — transcription must survive it');
+  // A conference dies with its last member, and its fork policy dies with it,
+  // while the console's transcript state survives. When the room re-forms under
+  // the same name (everyone dropped and dialled back in — routine), the console
+  // must clear the previous call's lines and resume transcribing WITHOUT the
+  // user touching anything. This shipped broken once: the policy stayed dead and
+  // every later leg produced nothing, with the UI still claiming "Transcribing".
+  const clock = (rs) => rs.map((r) => {
+    const [m, sec] = r.time.split(':').map(Number);
+    return (m || 0) * 60 + (sec || 0);
+  });
+  const beforeMax = Math.max(0, ...clock(await readRows(con)));
+  await caller.getByRole('button', { name: 'Leave' }).click();
+  await visible(con, 'No active calls', 25000);
+  pass('room reaped, rail empty');
+  caller = await launch('caller.wav');
+  await joinPhone(caller, { username: 'caller1', role: 'caller' });
+  await visible(con, ROOM, 20000);
+  await con.getByText(ROOM).first().click();
+  {
+    // Assert on CONTENT, not on catching an empty instant: with a caller
+    // speaking continuously, new lines land within a second of the clear, so
+    // polling for length 0 is a race (it fooled an earlier version of this
+    // check). A re-formed conference restarts its clock, so the old call's high
+    // timestamps must be gone AND fresh lines must be arriving.
+    let rows = [];
+    let afterMax = Infinity;
+    const healDeadline = Date.now() + 90000;
+    while (Date.now() < healDeadline) {
+      rows = await readRows(con);
+      afterMax = Math.max(0, ...clock(rows));
+      if (rows.length >= 2 && afterMax < beforeMax) break;
+      await con.waitForTimeout(2500);
+    }
+    if (rows.length >= 2 && afterMax < beforeMax) {
+      pass(`re-formed room: previous call's lines dropped (clock ${beforeMax}s → ${afterMax}s) and transcribing resumed unaided`);
+    } else {
+      await fail(
+        `re-formed room: expected a fresh transcript (lines=${rows.length}, clock ${beforeMax}s → ${afterMax}s)`, con);
+    }
+  }
+
+  step('11. transcript OFF + teardown');
   await con.getByRole('button', { name: 'On' }).first().click();
   await visible(con, 'Transcript is off', 10000);
   pass('fork stopped');

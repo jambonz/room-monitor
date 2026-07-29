@@ -36,16 +36,28 @@ curl -s -H "Authorization: Bearer $API_KEY" \
 
 ## 2. Provision the jambonz account (portal)
 
-1. **Applications** — create two (or run `tools/e2e/provision.mjs`):
+1. **Applications** — create these in the portal as you normally would:
    - **`room-monitor`** (the backend resolves it by this name; override with
      `MONITOR_APP_NAME`): calling webhook `ws://<backend-host>:3002/supervisor`
      (WebSocket). Serves the console's monitoring leg and the phone page. Note
      its **application SID** — the phone page needs it (the console discovers it
      automatically).
    - **`room-monitor-caller`**: calling webhook `ws://<backend-host>:4003/caller`.
-     Route your **DID** to this application. Its **`ROOM_NAME` env var** (shown
-     on the application screen via OPTIONS discovery) selects the conference
-     inbound callers join — change it from the portal any time, default `lobby`.
+     Route a **DID** to this application. Two env vars appear on the application
+     screen (the app declares them, the portal discovers them via OPTIONS), so
+     both are editable from the portal at any time with no redeploy:
+     - **`ROOM_NAME`** — the conference inbound callers join. Default `lobby`.
+     - **`ROLE`** — `caller` (plain participant) or `agent` (joins with
+       `memberTag: agent`, which is what makes the console's **Coach** button
+       appear and what coached audio is directed at). Default `caller`.
+
+   To get a room with both an agent and a customer in it over real phones,
+   create a **second** caller application — say **`room-monitor-agent`** — with
+   the *same* webhook `ws://<backend-host>:4003/caller` and the *same*
+   `ROOM_NAME`, but `ROLE=agent`, then route a second DID to it. Env vars belong
+   to the application, not the phone number, which is why the two roles need two
+   applications even though they share one endpoint. Dial both numbers and the
+   room shows one tagged agent and one caller.
 2. **Clients (webrtc SIP users)** — create at least three, active, with
    passwords:
    - `supervisor` — used by the console login.
@@ -65,6 +77,8 @@ Backend (`apps/server/.env`):
 ```bash
 PORT=3001                          # data-WS the browser connects to
 JAMBONZ_WS_APP_PORT=3002           # jambonz-facing ws app (/supervisor, /fork)
+CALLER_APP_PORT=4003               # the DID caller app (/caller) — both caller
+                                   #   applications point here
 WEBRTC_SBC_URL=wss://<sbc-host>:8443
 # MUST be reachable FROM the MediaJam host (it dials out to this):
 FORK_SINK_URL=ws://<backend-host>:3002/fork
@@ -85,7 +99,15 @@ MediaJam network (it receives the supervisor call control and the fork audio).
 
 ## 4. Create demo traffic
 
-### Live participants — the phone page (primary)
+### Live participants — real phones (simplest)
+
+With the two caller applications from §2 in place, dial the `ROLE=agent` DID
+from one phone and the `ROLE=caller` DID from another. Both land in the same
+`ROOM_NAME`, one tagged as an agent, and the room appears in the console's rail.
+Nothing to configure per call — to move everyone to a different room, edit
+`ROOM_NAME` on both applications in the portal.
+
+### Live participants — the phone page (no phone numbers needed)
 
 Open `http://localhost:3000/#phone` in one tab per participant. To make sure
 everyone lands in the same room, share a link with the room preset — e.g.

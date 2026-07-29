@@ -95,10 +95,21 @@ function handleDemoParticipant(session: Session): void {
 function handleSupervisorCall(session: Session): void {
   const sessionId = header(session, 'X-Session-Id');
   const roomName = header(session, 'X-Room');
-  const sup = sessionId ? sessionManager.get(sessionId) : undefined;
+  let sup = sessionId ? sessionManager.get(sessionId) : undefined;
+
+  // A console that reconnected (or outlived a backend restart) can present a
+  // session id this process never issued. Rather than hang up the leg — which
+  // leaves the supervisor unable to engage at all until they reload — adopt a
+  // live session that has this room selected and no leg of its own.
+  if (!sup && roomName) {
+    sup = sessionManager.findAdoptable(roomName);
+    if (sup) {
+      logger.info({ staleSessionId: sessionId, adoptedBy: sup.id, roomName }, 'adopted supervisor call with a stale session id');
+    }
+  }
 
   if (!sup || !roomName) {
-    logger.warn({ sessionId, roomName }, 'supervisor call missing X-Session-Id / X-Room');
+    logger.warn({ sessionId, roomName }, 'supervisor call: no session to attach it to');
     session.hangup().send();
     return;
   }
@@ -165,15 +176,11 @@ function handleForkAudio(stream: AudioStream): void {
     return;
   }
 
-  // The supervisor's own monitoring leg is a room member too — but its speech
-  // (including private coaching) does not belong in the room transcript, same
-  // as the mix fork never carried coached audio.
-  if (meta.callSid && meta.tag === 'supervisor') {
-    stream.disconnect();
-    return;
-  }
-
   const sampleRate = meta.sampleRate ?? stream.sampleRate ?? FORK_SAMPLE_RATE;
+  // Every member stream takes the same path — including the supervisor's own
+  // leg, which the session recognizes by call_sid and gates accordingly (the
+  // metadata tag is unreliable for a member that joined while transcription was
+  // already running: the media server tags a member after the join).
   const transcriber = meta.callSid
     ? sup.attachMemberStream(roomName, sampleRate, meta.callSid, meta.tag ?? '')
     : sup.attachTranscriptionStream(roomName, sampleRate);

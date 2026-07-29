@@ -17,6 +17,7 @@ export function App() {
 
   const room = rm.rooms.find((r) => r.id === rm.selectedRoomId) ?? null;
   const lines = rm.selectedRoomId ? rm.transcriptsByRoom[rm.selectedRoomId] ?? [] : [];
+  const liveLines = rm.selectedRoomId ? rm.liveByRoom[rm.selectedRoomId] ?? [] : [];
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -31,6 +32,7 @@ export function App() {
             engageError={rm.engageError}
             transcriptOn={rm.transcriptOn}
             lines={lines}
+            liveLines={liveLines}
             onSetMode={rm.setMode}
             onStop={rm.stop}
             onToggleTranscript={rm.toggleTranscript}

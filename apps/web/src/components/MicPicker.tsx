@@ -32,10 +32,21 @@ export function MicPicker() {
     }
   }, []);
 
+  // Re-enumerate on every opportunity, not just `devicechange`: that event is
+  // the documented signal but it is not dependable in practice (it can be
+  // missed while the tab is unfocused, and a device paired *after* the page
+  // loaded — AirPods connected mid-session — may not surface until something
+  // asks again). So also refresh when the window regains focus and whenever the
+  // user actually opens the selector, which is the moment the list must be
+  // right.
   useEffect(() => {
     void refresh();
     navigator.mediaDevices?.addEventListener?.('devicechange', refresh);
-    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [refresh]);
 
   const requestPermission = useCallback(async () => {
@@ -76,7 +87,9 @@ export function MicPicker() {
       <select
         value={selected}
         onChange={(e) => choose(e.target.value)}
-        title="Microphone used when you Listen / Coach / Enter"
+        onMouseDown={() => void refresh()}
+        onFocus={() => void refresh()}
+        title="Microphone used when you Listen / Coach / Enter. Applies to your next connection — if you are already in a room, Stop and re-engage to switch device."
         style={{ maxWidth: 190, padding: '8px 8px', borderRadius: 8, border: '1.5px solid var(--grey)', fontFamily: 'var(--font-regular)', fontSize: '0.8rem', color: '#5a5758', background: 'var(--white)', outline: 'none', textOverflow: 'ellipsis' }}
       >
         <option value="">System default mic</option>

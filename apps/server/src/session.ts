@@ -37,6 +37,23 @@ export class SupervisorSession {
   private transcribers = new Map<string, Transcriber>();
   /** Which fork scope is running for the transcript (for teardown). */
   private transcriptScope: 'members' | 'mix' | null = null;
+
+  /**
+   * True only while the supervisor is a full participant (barge-in), i.e. while
+   * what they say is audible to the whole room.
+   *
+   * This gates the supervisor's TRANSCRIPTION AUDIO, not its text, and that
+   * choice is deliberate: the media server tees a member's inbound frame
+   * before the mute check, so the supervisor's microphone reaches us even while
+   * they monitor silently. Gating the audio means coach whispers and idle
+   * chatter never reach the STT engine at all — privacy by construction, with
+   * no dependence on comparing STT timestamps against mode-change times (which
+   * would misattribute any utterance spanning a switch, in the unsafe
+   * direction, whenever the two clocks drifted).
+   */
+  private supervisorAudible(): boolean {
+    return this.mode === 'enter';
+  }
   private rooms: Room[] = [];
   private pollTimer: NodeJS.Timeout | null = null;
 
@@ -77,6 +94,21 @@ export class SupervisorSession {
       }
       this.rooms = rooms;
       this.send({ type: 'rooms', rooms: this.rooms });
+      // Self-heal transcription across a room's lifetime. A conference is
+      // destroyed when its last member leaves, and its fork policy dies with it
+      // — but this session's transcriptOn survives, so when the room re-forms
+      // under the same name (everyone dropped and dialled back in, which is
+      // routine) the console would keep claiming "Transcribing" while nothing
+      // was being forked at all. If the room is present and we hold no live
+      // streams for it, re-issue the policy.
+      if (this.transcriptOn && this.selectedRoomId) {
+        const sel = this.room(this.selectedRoomId);
+        const graceOver = Date.now() - this.forksStartedAt > 10000;
+        if (sel && this.transcribers.size === 0 && graceOver) {
+          logger.info({ roomId: this.selectedRoomId }, 'transcript on but no live streams — restarting the fork policy');
+          await this.startForks(this.selectedRoomId, true);
+        }
+      }
       // Coach is gated on agent presence; if the supervisor is coaching and the
       // agents have left, fall back to listen.
       if (this.mode === 'coach' && this.supervisorCallSid) {
@@ -183,6 +215,50 @@ export class SupervisorSession {
     this.transcriptOn = on;
 
     if (on) {
+      const ok = await this.startForks(roomId);
+      if (!ok) {
+        // fork failed to start — revert so the UI toggle doesn't lie
+        this.transcriptOn = false;
+        this.send({ type: 'transcriptState', roomId, on: false });
+        return;
+      }
+    } else {
+      await this.rest.stopConferenceListen(roomId, this.transcriptScope ?? 'mix');
+      this.stopTranscribers();
+    }
+    this.send({ type: 'transcriptState', roomId, on });
+  }
+
+  /** When the fork policy was last (re)started, for the poll's self-heal grace. */
+  private forksStartedAt = 0;
+
+  /**
+   * Start the transcription fork policy for a room. Split out of setTranscript
+   * because it must also be re-issued when a room is destroyed and re-formed
+   * (see poll): the policy is room-scoped in the media server and dies with the
+   * room, while this session's transcriptOn state survives.
+   */
+  private async startForks(roomId: string, restarted = false): Promise<boolean> {
+    if (!this.rest) return false;
+    this.forksStartedAt = Date.now();
+    if (restarted) {
+      // A restart means we are attached to a DIFFERENT conference that happens
+      // to share the name. Its clock starts again, and the previous
+      // conversation is not part of this call — drop both. The frontend clears
+      // the room's lines when transcriptState arrives.
+      this.roomEpochs.delete(roomId);
+      this.stopTranscribers();
+      this.send({ type: 'transcriptState', roomId, on: true });
+    }
+    {
+      // Clear any policy already running for this room before starting ours.
+      // A member-forks policy is room-scoped in the media server and outlives
+      // the console session that started it (a reload, a reconnect, or a
+      // backend restart leaves it running). Its forks are stamped with the
+      // ORIGINATING session's id, so inheriting one would deliver streams this
+      // session cannot resolve — and starting is idempotent, so without the
+      // stop we would inherit rather than replace it.
+      await this.rest.stopConferenceListen(roomId, 'members').catch(() => {});
       const common = {
         url: config.forkSink.url,
         sampleRate: FORK_SAMPLE_RATE,
@@ -207,17 +283,8 @@ export class SupervisorSession {
         });
         if (started.ok) this.transcriptScope = 'mix';
       }
-      if (!started.ok) {
-        // fork failed to start — revert so the UI toggle doesn't lie
-        this.transcriptOn = false;
-        this.send({ type: 'transcriptState', roomId, on: false });
-        return;
-      }
-    } else {
-      await this.rest.stopConferenceListen(roomId, this.transcriptScope ?? 'mix');
-      this.stopTranscribers();
+      return started.ok;
     }
-    this.send({ type: 'transcriptState', roomId, on });
   }
 
   /** Speaker label for a member stream: the participant's caller-id/username
@@ -225,10 +292,34 @@ export class SupervisorSession {
    *  or call sid. Resolved per fragment, not at stream attach: a late joiner's
    *  fork connects before the next room poll knows the participant, so the
    *  label self-heals as soon as the listing catches up. */
+  /**
+   * Is this stream the supervisor's own leg?
+   *
+   * Identified by call_sid, which this session knows the moment its leg lands —
+   * NOT by the fork metadata's tag. The media server applies a member's
+   * conference tag with a separate command *after* the join, so a member that
+   * joins while transcription is already running is announced (and forked) with
+   * an empty tag; trusting it would leave the supervisor unrecognized exactly
+   * when they join a room whose transcript is already on. The tag is still
+   * honored when present, which covers a *different* supervisor's leg that was
+   * already tagged when our fork policy snapshotted the room.
+   */
+  private isSupervisorLeg(callSid: string, tagHint: string): boolean {
+    return tagHint === 'supervisor' || this.supervisorCallSid === callSid;
+  }
+
   private labelForCall(roomName: string, callSid: string, tag: string): string {
+    if (this.isSupervisorLeg(callSid, tag)) return 'supervisor';
+    // Agents are labelled by ROLE. The stream's tag says so when it was set
+    // before the fork started; otherwise the room listing's memberTag does.
+    if (tag === 'agent') return 'agent';
+    if (this.room(roomName)?.participants.find((pp) => pp.call_sid === callSid)?.isAgent) return 'agent';
+    // Everyone else is labelled by their phone number: who called in (inbound)
+    // or who we dialed (outbound). `number` comes from the enriched listing;
+    // `label` is the older caller-id-or-number field, kept as a fallback for
+    // deployments without it and for webrtc clients (a SIP username).
     const p = this.room(roomName)?.participants.find((pp) => pp.call_sid === callSid);
-    if (p?.label) return p.isAgent ? `${p.label} (agent)` : p.label;
-    return tag || callSid.slice(0, 8);
+    return p?.number || p?.label || tag || callSid.slice(0, 8);
   }
 
   /** Stable per-room wall-clock start estimates, so every line's tsMs shares
@@ -248,9 +339,30 @@ export class SupervisorSession {
   /** Emit one transcript line. tsMs is the SPEECH-START time (ms since room
    *  start): with per-member streams, finals arrive when utterances END, so
    *  arrival order is not speech order — the frontend insert-sorts on tsMs. */
-  private emitFragment(roomName: string, speaker: string, text: string, startMs: number): void {
-    const tsMs = Math.max(0, startMs - this.roomEpoch(roomName));
-    const line: TranscriptLine = { speaker, text, tsMs };
+  private emitFragment(
+    roomName: string,
+    speaker: string,
+    frag: { text: string; startMs: number; id: string; interim: boolean },
+    streamKey: string,
+    channel?: 'coach' | 'enter'
+  ): void {
+    const tsMs = Math.max(0, frag.startMs - this.roomEpoch(roomName));
+    const line: TranscriptLine = {
+      speaker,
+      text: frag.text,
+      tsMs,
+      // namespaced per stream so two speakers' utterances can never collide;
+      // interim updates and the final share it, so the console replaces in place
+      id: `${streamKey}:${frag.id}`,
+      ...(frag.interim ? { interim: true } : {}),
+      ...(channel ? { channel } : {}),
+    };
+    // lagMs = speech start → line published. Only finals are timed: an interim
+    // is published mid-utterance, so its "lag" would measure the words spoken
+    // so far, not the pipeline.
+    if (!frag.interim) {
+      logger.info({ roomName, speaker, lagMs: Date.now() - frag.startMs, chars: frag.text.length }, 'transcript line');
+    }
     this.send({ type: 'transcript', roomId: roomName, line });
   }
 
@@ -260,8 +372,27 @@ export class SupervisorSession {
    *  is resolved fresh on every fragment via labelForCall. */
   attachMemberStream(roomName: string, sampleRate: number, callSid: string, tag: string): Transcriber {
     this.transcribers.get(callSid)?.close();
-    const t = new Transcriber(config.deepgramApiKey, { sampleRate, label: 'member' }, (frag) =>
-      this.emitFragment(roomName, this.labelForCall(roomName, callSid, tag), frag.text, frag.startMs));
+    const t = new Transcriber(
+      config.deepgramApiKey,
+      {
+        sampleRate,
+        label: 'member',
+        // One uniform gate for every member stream, evaluated per audio chunk:
+        // open for participants, and for the supervisor's own leg only while
+        // they are audible to the room. Evaluating it live (rather than picking
+        // a gated/ungated stream at attach time) is what makes it correct when
+        // the leg's identity is only known after the stream starts.
+        audioGate: () => !this.isSupervisorLeg(callSid, tag) || this.supervisorAudible(),
+      },
+      (frag) =>
+        this.emitFragment(
+          roomName,
+          this.labelForCall(roomName, callSid, tag),
+          frag,
+          callSid,
+          this.isSupervisorLeg(callSid, tag) ? 'enter' : undefined
+        )
+    );
     this.transcribers.set(callSid, t);
     return t;
   }
@@ -276,7 +407,7 @@ export class SupervisorSession {
   attachTranscriptionStream(roomName: string, sampleRate: number): Transcriber {
     this.stopTranscribers();
     const t = new Transcriber(config.deepgramApiKey, { sampleRate }, (frag) =>
-      this.emitFragment(roomName, frag.speaker, frag.text, frag.startMs));
+      this.emitFragment(roomName, frag.speaker, frag, 'mix'));
     this.transcribers.set('mix', t);
     return t;
   }
@@ -293,6 +424,25 @@ export class SupervisorSession {
   async dispose(): Promise<void> {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = null;
+    // Hang up the supervisor's media leg. Without this it outlives the console
+    // session: the browser normally sends BYE, but not if the page was closed,
+    // the SIP socket was already dead, or the backend restarted — and then the
+    // leg sits in the conference indefinitely while a reconnected console shows
+    // "not connected" (no way to leave a room it no longer knows it is in).
+    // Injected over the leg's own ws session, so it reaches the owning
+    // feature-server on any topology.
+    if (this.supervisorCallSid) {
+      const leg = getSupervisorLeg(this.supervisorCallSid);
+      if (leg) {
+        try {
+          leg.hangup().send();
+          logger.info({ callSid: this.supervisorCallSid }, 'dispose: hung up the supervisor leg');
+        } catch (err) {
+          logger.warn({ err, callSid: this.supervisorCallSid }, 'dispose: failed to hang up the supervisor leg');
+        }
+      }
+      this.supervisorCallSid = null;
+    }
     if (this.transcriptOn && this.selectedRoomId && this.rest) {
       // best-effort: if this fails the fork(s) keep streaming until the room
       // ends (MediaJam reaps them then) — surface it rather than hide it
@@ -324,6 +474,17 @@ export class SessionManager {
   findTranscribing(roomName: string): SupervisorSession | undefined {
     for (const s of this.sessions.values()) {
       if (s.transcriptOn && s.selectedRoomId === roomName) return s;
+    }
+    return undefined;
+  }
+
+  /** A live session that has this room selected but no media leg yet — used to
+   *  adopt a supervisor call whose X-Session-Id is stale (the console kept an
+   *  id from a previous backend process, e.g. across a restart), so a reconnect
+   *  heals itself instead of the leg being hung up on arrival. */
+  findAdoptable(roomName: string): SupervisorSession | undefined {
+    for (const s of this.sessions.values()) {
+      if (s.selectedRoomId === roomName && !s.supervisorCallSid) return s;
     }
     return undefined;
   }

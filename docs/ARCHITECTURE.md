@@ -96,13 +96,22 @@ MediaJam ──L16 PCM (room mix)──▶ Room Monitor WS sink ──▶ Deepgr
 - **Lifecycle** (all backend-driven): transcript toggled **on** → start the fork;
   transcript **off**, **switch room**, or **logout/disconnect** → stop the fork.
   Room ends on its own → MediaJam reaps the conf-bot.
-- **Speaker labels**: with member-scoped forks each stream's first metadata
-  frame identifies its participant (`callSid`, `tag`), and the backend resolves
-  it to the live listing's label — "agent1 (agent)", the caller's number. The
-  supervisor's own leg is never transcribed (so private coaching stays out of
-  the transcript by construction). On the mix fallback, labels are
-  vendor-diarized `Speaker N` — best-effort only; see docs/DIARIZATION.md for
-  the measurements.
+- **Speaker labels**: each member stream's first metadata frame identifies its
+  participant (`callSid`, `tag`), and the backend labels lines by role or
+  identity — **agents by role ("agent")**, everyone else by **phone number**
+  (the enriched listing's `number`: who called in, or who we dialed), falling
+  back to caller-id/username when a leg has no number (a webrtc client). On the
+  mix fallback, labels are vendor-diarized `Speaker N` — best-effort only; see
+  docs/DIARIZATION.md.
+- **The supervisor is transcribed only as a full participant.** Their leg is a
+  room member, so it has a member fork like any other, but the media server
+  tees a member's audio *before* the mute check — their microphone reaches us
+  even while they monitor silently. So the supervisor's stream is **audio-gated
+  on `mode === 'enter'`**: while coaching or listening it is paced with silence
+  and their speech never reaches the STT engine at all. Private coaching cannot
+  appear in the transcript by construction, with no reliance on comparing STT
+  timestamps to mode-change times. Barge-in lines are labelled "supervisor" and
+  carry `channel: 'enter'`, which the console renders as heard-by-all.
 
 ---
 

@@ -20,6 +20,64 @@ export function TranscriptOff({ onTurnOn }: { onTurnOn: () => void }) {
   );
 }
 
+/**
+ * Live pane: what is being said RIGHT NOW, anchored below the settled
+ * transcript. Keeping in-progress text out of the record means the transcript
+ * above never reflows or reorders as words arrive, and two people talking at
+ * once simply get a row each. Each row disappears the instant its final lands
+ * in the record above.
+ *
+ * The pane holds its height whether or not anyone is speaking, so the
+ * transcript does not jump every time someone starts and stops.
+ */
+export function LiveTranscript({ lines }: { lines: TranscriptLine[] }) {
+  return (
+    <div
+      style={{
+        flex: 'none',
+        minHeight: 62,
+        maxHeight: 96,
+        overflowY: 'auto',
+        padding: '9px 24px 11px',
+        borderTop: '1px solid var(--grey-light)',
+        background: '#fbfbfc',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '0.66rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.6px',
+          color: '#b3b1b2',
+          fontFamily: 'var(--font-medium)',
+          marginBottom: 4,
+        }}
+      >
+        Being said now
+      </div>
+      {lines.length === 0 ? (
+        <div style={{ fontSize: '0.86rem', color: '#c9c7c8', fontStyle: 'italic' }}>…</div>
+      ) : (
+        lines.map((ln) => (
+          <div key={ln.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginTop: 1 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-medium)',
+                fontSize: '0.78rem',
+                color: ln.channel ? 'var(--jambonz)' : speakerColor(ln.speaker),
+                flex: 'none',
+              }}
+            >
+              {ln.speaker}
+            </span>
+            <span style={{ fontSize: '0.9rem', color: '#8a8788', fontStyle: 'italic', minWidth: 0 }}>{ln.text}</span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export function TranscriptList({ lines }: { lines: TranscriptLine[] }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -39,9 +97,11 @@ export function TranscriptList({ lines }: { lines: TranscriptLine[] }) {
         const note = supervisor ? (coach ? '🔒 private to agents' : 'live to all') : '';
         const rowBg = supervisor ? (coach ? '#f7f1fb' : 'var(--pink)') : 'transparent';
         const tag = supervisor ? 'SU' : initials(ln.speaker);
-        const speaker = supervisor ? 'You · Supervisor' : ln.speaker;
+        // the backend names the speaker ("supervisor", "agent", or a phone
+        // number); the channel only drives the styling + heard-by note
+        const speaker = ln.speaker;
         return (
-          <div key={i} style={{ display: 'flex', gap: 12, padding: '9px 10px', margin: '2px 0', borderRadius: 10, background: rowBg }}>
+          <div key={ln.id ?? i} style={{ display: 'flex', gap: 12, padding: '9px 10px', margin: '2px 0', borderRadius: 10, background: rowBg }}>
             <div style={{ width: 30, height: 30, flex: 'none', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-bold)', fontSize: '0.66rem', color: 'var(--white)', background: color }}>{tag}</div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>

@@ -14,6 +14,17 @@ export interface Participant {
   call_sid: string;
   /** Caller id when we have one, otherwise the bare phone number. */
   label: string;
+  /**
+   * The remote party's number: who called in (inbound) or who we dialed
+   * (outbound). Preferred over `label` when identifying a participant by phone
+   * number — on an outbound leg `label` is the caller-id we presented. Empty
+   * for legs with no number identity (a webrtc client's is a SIP username).
+   * Optional: deployments predating api-server's participant `number` field
+   * omit it, and the app falls back to `label`.
+   */
+  number?: string;
+  /** Call direction of this member's leg ('inbound' | 'outbound'), when known. */
+  direction?: string;
   /** The member's conference tag ('agent' marks an agent; '' otherwise). */
   memberTag: string;
   /** Convenience: memberTag === "agent". */
@@ -36,6 +47,20 @@ export interface TranscriptLine {
   /** Diarized speaker label (or participant label when mapped). */
   speaker: string;
   text: string;
+  /**
+   * Stable id of the utterance this line belongs to, when the source can
+   * provide one. A line that arrives with an id already present REPLACES that
+   * line in place (same position) rather than being appended — this is how a
+   * live, still-being-spoken line firms up into its final wording.
+   */
+  id?: string;
+  /**
+   * True while this line is still being spoken: shown immediately (so the
+   * transcript keeps pace with the room) and superseded by the final version of
+   * the same id. Interim lines are never produced for the diarized mix stream,
+   * where the speaker is only known once the final arrives.
+   */
+  interim?: boolean;
   /**
    * Milliseconds since the room started, at the moment this speech STARTED
    * (not when its transcript arrived). With one STT stream per participant,

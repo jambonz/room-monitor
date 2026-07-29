@@ -186,6 +186,30 @@ try {
     // supervisor is coaching: their speech should NOT be in the transcript
     if (!SUPERVISOR_WORDS.test(text)) pass('coach privacy: supervisor speech absent from transcript');
     else await fail('coach audio leaked into the transcript', con);
+
+    // Rendered lines must read in speech order. Each participant has its own
+    // STT stream and finals arrive when an utterance ENDS, so appending in
+    // arrival order interleaves them wrongly; lines carry speech-START times
+    // and the UI insert-sorts on them. The displayed m:ss must be monotonic.
+    const readStamps = async () => {
+      const t = await con.locator('.rm-scroll').innerText().catch(() => '');
+      return (t.match(/\b\d+:\d\d\b/g) ?? []).map((s) => {
+        const [m, sec] = s.split(':').map(Number);
+        return m * 60 + sec;
+      });
+    };
+    // let enough lines accumulate for the check to mean something (each
+    // participant speaks in ~7s turns, so a handful of lines takes a moment)
+    let stamps = await readStamps();
+    const orderDeadline = Date.now() + 60000;
+    while (stamps.length < 5 && Date.now() < orderDeadline) {
+      await con.waitForTimeout(3000);
+      stamps = await readStamps();
+    }
+    const firstDrop = stamps.findIndex((v, i) => i > 0 && v < stamps[i - 1]);
+    if (stamps.length < 3) await fail(`too few transcript lines (${stamps.length}) to check ordering`, con);
+    else if (firstDrop === -1) pass(`transcript in speech order (${stamps.length} lines, timestamps monotonic)`);
+    else await fail(`transcript out of order at line ${firstDrop + 1}: ${stamps.slice(0, firstDrop + 2).join(', ')}`, con);
   }
 
   step('7. Enter Room (barge-in)');

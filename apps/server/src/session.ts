@@ -231,9 +231,26 @@ export class SupervisorSession {
     return tag || callSid.slice(0, 8);
   }
 
-  private emitFragment(roomName: string, speaker: string, text: string): void {
-    const room = this.room(roomName);
-    const line: TranscriptLine = { speaker, text, tsMs: (room?.durationSec ?? 0) * 1000 };
+  /** Stable per-room wall-clock start estimates, so every line's tsMs shares
+   *  one baseline (recomputing from durationSec per line would jitter with the
+   *  2s poll and could itself reorder lines). */
+  private roomEpochs = new Map<string, number>();
+
+  private roomEpoch(roomName: string): number {
+    let epoch = this.roomEpochs.get(roomName);
+    if (epoch === undefined) {
+      epoch = Date.now() - (this.room(roomName)?.durationSec ?? 0) * 1000;
+      this.roomEpochs.set(roomName, epoch);
+    }
+    return epoch;
+  }
+
+  /** Emit one transcript line. tsMs is the SPEECH-START time (ms since room
+   *  start): with per-member streams, finals arrive when utterances END, so
+   *  arrival order is not speech order — the frontend insert-sorts on tsMs. */
+  private emitFragment(roomName: string, speaker: string, text: string, startMs: number): void {
+    const tsMs = Math.max(0, startMs - this.roomEpoch(roomName));
+    const line: TranscriptLine = { speaker, text, tsMs };
     this.send({ type: 'transcript', roomId: roomName, line });
   }
 
@@ -244,7 +261,7 @@ export class SupervisorSession {
   attachMemberStream(roomName: string, sampleRate: number, callSid: string, tag: string): Transcriber {
     this.transcribers.get(callSid)?.close();
     const t = new Transcriber(config.deepgramApiKey, { sampleRate, label: 'member' }, (frag) =>
-      this.emitFragment(roomName, this.labelForCall(roomName, callSid, tag), frag.text));
+      this.emitFragment(roomName, this.labelForCall(roomName, callSid, tag), frag.text, frag.startMs));
     this.transcribers.set(callSid, t);
     return t;
   }
@@ -259,7 +276,7 @@ export class SupervisorSession {
   attachTranscriptionStream(roomName: string, sampleRate: number): Transcriber {
     this.stopTranscribers();
     const t = new Transcriber(config.deepgramApiKey, { sampleRate }, (frag) =>
-      this.emitFragment(roomName, frag.speaker, frag.text));
+      this.emitFragment(roomName, frag.speaker, frag.text, frag.startMs));
     this.transcribers.set('mix', t);
     return t;
   }
@@ -268,6 +285,8 @@ export class SupervisorSession {
     for (const t of this.transcribers.values()) t.close();
     this.transcribers.clear();
     this.transcriptScope = null;
+    // next transcript session re-derives the room's wall-clock baseline
+    this.roomEpochs.clear();
   }
 
   /** Tear everything down (data-WS closed / sign out). */

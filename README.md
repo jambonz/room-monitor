@@ -43,6 +43,8 @@ held in memory only.
 
 See [DEMO.md](DEMO.md) for platform prerequisites, jambonz account provisioning,
 demo traffic (the `/#phone` page + `tools/traffic/`), and the demo runbook.
+For testing with real people, [docs/LIVE-TEST.md](docs/LIVE-TEST.md) is a
+fill-in-the-placeholders hand-out for a three-person live test.
 
 ## Building on this
 
